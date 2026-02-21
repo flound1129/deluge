@@ -668,33 +668,17 @@ class PathChooserPopup:
         return x, y, width, height
 
     def popup_grab_window(self):
-        activate_time = 0
-        if (
-            Gdk.pointer_grab(
-                self.popup_window.get_window(),
-                True,
-                (
-                    Gdk.EventMask.BUTTON_PRESS_MASK
-                    | Gdk.EventMask.BUTTON_RELEASE_MASK
-                    | Gdk.EventMask.POINTER_MOTION_MASK
-                ),
-                None,
-                None,
-                activate_time,
-            )
-            == 0
-        ):
-            if (
-                Gdk.keyboard_grab(self.popup_window.get_window(), True, activate_time)
-                == 0
-            ):
-                return True
-            else:
-                self.popup_window.get_window().get_display().pointer_ungrab(
-                    activate_time
-                )
-                return False
-        return False
+        window = self.popup_window.get_window()
+        seat = window.get_display().get_default_seat()
+        result = seat.grab(
+            window,
+            Gdk.SeatCapabilities.ALL,
+            True,
+            None,
+            None,
+            None,
+        )
+        return result == Gdk.GrabStatus.SUCCESS
 
     def set_entry_value(self, path, popdown=False):
         """
@@ -1041,20 +1025,7 @@ class PathAutoCompleter:
             else:
                 self.completion_popup.handle_list_scroll(_next=True)
             return True
-        # Buggy stuff (in pygobject?) causing type mismatch between EventKey and GdkEvent. Convert manually...
-        n = Gdk.Event()
-        n.type = event.type
-        n.window = event.window
-        n.send_event = event.send_event
-        n.time = event.time
-        n.state = event.state
-        n.keyval = event.keyval
-        n.length = event.length
-        n.string = event.string
-        n.hardware_keycode = event.hardware_keycode
-        n.group = event.group
-        n.is_modifier = event.is_modifier
-        self.path_entry.text_entry.emit('key-press-event', n)
+        self.path_entry.text_entry.emit('key-press-event', event)
 
     def is_auto_completion_accelerator(self, keyval, state):
         return Gtk.accelerator_name(keyval, state) == self.accelerator_string
