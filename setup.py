@@ -517,7 +517,6 @@ _package_data['deluge.ui.web'] = [
 ]
 _package_data['deluge.ui.gtk3'] = ['glade/*.ui']
 
-setup_requires = ['setuptools', 'wheel']
 install_requires = [
     'twisted[tls]>=17.1',
     # Add pyasn1 for setuptools workaround:
@@ -577,7 +576,6 @@ setup(
     python_requires='>=3.10',
     license='GPLv3+',
     cmdclass=cmdclass,
-    setup_requires=setup_requires,
     install_requires=install_requires,
     extras_require=extras_require,
     data_files=_data_files,
