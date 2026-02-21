@@ -293,7 +293,12 @@ class Torrent:
         """Process the metadata received alert for this torrent"""
         self.has_metadata = True
         self.torrent_info = self.handle.get_torrent_info()
-        if self.options['prioritize_first_last_pieces']:
+        if self.options['file_priorities']:
+            # Re-apply file priorities now that metadata is available (e.g. magnet torrents
+            # where priorities were set before metadata arrived). set_file_priorities also
+            # handles prioritize_first_last_pieces internally if that option is set.
+            self.set_file_priorities(self.options['file_priorities'])
+        elif self.options['prioritize_first_last_pieces']:
             self.set_prioritize_first_last_pieces(True)
         self.write_torrentfile()
 
