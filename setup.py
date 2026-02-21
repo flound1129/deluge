@@ -18,7 +18,6 @@ from distutils.command.install_data import install_data as _install_data
 from shutil import rmtree, which
 
 from setuptools import Command, find_packages, setup
-from setuptools.command.test import test as _test
 
 import msgfmt
 from version import get_version
@@ -48,23 +47,6 @@ _exclude_package_data = {}
 _entry_points = {'console_scripts': [], 'gui_scripts': [], 'deluge.ui': []}
 _data_files = []
 _version = get_version(prefix='deluge-', suffix='.dev0')
-
-
-class PyTest(_test):
-    def initialize_options(self):
-        _test.initialize_options(self)
-        self.pytest_args = []
-
-    def finalize_options(self):
-        _test.finalize_options(self)
-        self.test_args = []
-        self.test_suite = True
-
-    def run_tests(self):
-        import pytest
-
-        errcode = pytest.main(self.test_args)
-        sys.exit(errcode)
 
 
 class CleanDocs(Command):
@@ -446,7 +428,6 @@ cmdclass = {
     'clean_webui': CleanWebUI,
     'clean': Clean,
     'egg_info_plugins': EggInfoPlugins,
-    'test': PyTest,
 }
 
 
@@ -536,7 +517,6 @@ _package_data['deluge.ui.web'] = [
 ]
 _package_data['deluge.ui.gtk3'] = ['glade/*.ui']
 
-setup_requires = ['setuptools', 'wheel']
 install_requires = [
     'twisted[tls]>=17.1',
     # Add pyasn1 for setuptools workaround:
@@ -587,7 +567,6 @@ setup(
         'Environment :: X11 Applications :: GTK',
         'Framework :: Twisted',
         'Intended Audience :: End Users/Desktop',
-        ('License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)'),
         'Programming Language :: Python',
         'Operating System :: MacOS :: MacOS X',
         'Operating System :: Microsoft :: Windows',
@@ -595,9 +574,8 @@ setup(
         'Topic :: Internet',
     ],
     python_requires='>=3.9',
-    license='GPLv3+',
+    license='GPL-3.0-or-later',
     cmdclass=cmdclass,
-    setup_requires=setup_requires,
     install_requires=install_requires,
     extras_require=extras_require,
     data_files=_data_files,
