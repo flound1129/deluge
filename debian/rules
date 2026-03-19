@@ -23,7 +23,7 @@ override_dh_virtualenv:
 		--package deluge-common
 
 execute_before_dh_virtualenv:
-	echo "$(VERSION)" > RELEASE-VERSION
+	echo "$(VERSION)" | sed 's/~/./' > RELEASE-VERSION
 
 execute_after_dh_virtualenv:
 	# Unpack plugin eggs
