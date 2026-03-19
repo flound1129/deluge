@@ -16,7 +16,6 @@ import argparse
 import logging
 import os
 import sys
-
 from importlib.metadata import entry_points
 
 import deluge.common

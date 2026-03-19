@@ -6,11 +6,20 @@ Wants=deluged.service
 
 [Service]
 Type=simple
+User=debian-deluge-web
+Group=debian-deluge-web
 UMask=027
 
+EnvironmentFile=-/etc/default/deluge-web
 ExecStart=/usr/bin/deluge-web -d
 
 Restart=on-failure
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/log/deluge-web /var/lib/deluge-web
 
 [Install]
 WantedBy=multi-user.target

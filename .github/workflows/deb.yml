@@ -29,6 +29,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
 
       - name: Enable universe (Ubuntu only)
         if: matrix.distro == 'ubuntu'
@@ -55,10 +56,55 @@ jobs:
       - name: Build packages
         run: dpkg-buildpackage -us -uc -b
 
-      - name: Collect debs
-        run: mkdir -p dist && mv ../*.deb dist/
+      - name: Rename to debrepo format
+        env:
+          CODENAME: ${{ matrix.version }}
+        run: |
+          mkdir -p dist
+          for deb in ../*.deb; do
+            base=$(basename "$deb")
+            pkg=$(echo "$base" | cut -d_ -f1)
+            ver_rev=$(echo "$base" | cut -d_ -f2)
+            arch=$(echo "$base" | cut -d_ -f3 | sed 's/\.deb//')
+            ver=$(echo "$ver_rev" | sed 's/-[^-]*$//')
+            mv "$deb" "dist/${pkg}_${ver}_${CODENAME}_${arch}.deb"
+          done
 
       - uses: actions/upload-artifact@v4
         with:
           name: debs-${{ matrix.distro }}-${{ matrix.version }}
           path: dist/*.deb
+
+  publish:
+    needs: build-deb
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Get release tag
+        id: tag
+        run: |
+          VERSION=$(dpkg-parsechangelog -S Version | sed 's/-[^-]*$//' | sed 's/~/./')
+          echo "tag=debs-${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Publish to GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          gh release create "$TAG" \
+            --title "Deluge packages ($TAG)" \
+            --prerelease \
+            --notes "Automated deb build" 2>/dev/null || true
+          gh release upload "$TAG" dist/*.deb --clobber

@@ -559,7 +559,9 @@ class Torrent:
                         try:
                             os.remove(file_path)
                         except OSError as ex:
-                            log.warning('Unable to remove skipped file %s: %s', file_path, ex)
+                            log.warning(
+                                'Unable to remove skipped file %s: %s', file_path, ex
+                            )
 
         # Store the priorities.
         self.options['file_priorities'] = file_priorities

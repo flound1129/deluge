@@ -80,8 +80,11 @@ Description: multi-interface BitTorrent client (graphical UI)
 
 Package: deluge-web
 Architecture: all
+Pre-Depends:
+ ${misc:Pre-Depends},
 Depends:
  deluge-common (= ${source:Version}),
+ passwd,
  ${misc:Depends},
 Description: multi-interface BitTorrent client (web frontend)
  Deluge is a BitTorrent client written in Python. It uses a client-server

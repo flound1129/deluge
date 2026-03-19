@@ -5,14 +5,23 @@ After=network-online.target
 
 [Service]
 Type=simple
+User=debian-deluged
+Group=debian-deluged
 UMask=007
 
+EnvironmentFile=-/etc/default/deluged
 ExecStart=/usr/bin/deluged -d
 
 Restart=on-failure
 
 # Time to wait before forcefully stopped.
 TimeoutStopSec=300
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/log/deluged /var/lib/deluged
 
 [Install]
 WantedBy=multi-user.target
