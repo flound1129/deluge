@@ -1409,8 +1409,11 @@ class PathChooserComboBox(Gtk.Box, StoredValuesPopup, GObject.GObject):
             if self.auto_completer.auto_complete_enabled:
                 self.auto_completer.do_completion()
                 return True
-        # Show popup when Enter is pressed
+        # Show popup when Enter is pressed, unless inside a dialog where
+        # Enter should confirm the dialog instead of opening the popup.
         elif key_is_enter(keyval):
+            if isinstance(self.get_toplevel(), Gtk.Dialog):
+                return False
             # This sets the toggle active which results in
             # on_button_toggle_dropdown_toggled being called which initiates the popup
             self.button_toggle.set_active(True)
