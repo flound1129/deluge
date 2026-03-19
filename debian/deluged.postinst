@@ -1,0 +1,45 @@
+#!/bin/sh
+
+set -e
+
+DELUGE_USER="debian-deluged"
+DELUGE_GROUP="debian-deluged"
+
+Add_override ()
+{
+	if ! dpkg-statoverride --list ${4} > /dev/null 2>&1
+	then
+		dpkg-statoverride --update --add ${@}
+	fi
+}
+
+case "${1}" in
+	configure)
+		if ! getent group ${DELUGE_GROUP} > /dev/null 2>&1
+		then
+			groupadd --system ${DELUGE_GROUP}
+		fi
+
+		if ! getent passwd ${DELUGE_USER} > /dev/null 2>&1
+		then
+			useradd --system -g ${DELUGE_GROUP} --home-dir /var/lib/deluged \
+				--shell /usr/sbin/nologin ${DELUGE_USER}
+		fi
+
+		Add_override ${DELUGE_USER} adm 2750 /var/log/deluged
+		Add_override ${DELUGE_USER} ${DELUGE_GROUP} 0750 /var/lib/deluged
+		Add_override ${DELUGE_USER} ${DELUGE_GROUP} 0750 /var/lib/deluged/config
+		;;
+
+	abort-upgrade|abort-remove|abort-deconfigure)
+		;;
+
+	*)
+		echo "postinst called with unknown argument \`${1}'" >&2
+		exit 1
+		;;
+esac
+
+#DEBHELPER#
+
+exit 0

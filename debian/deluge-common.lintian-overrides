@@ -1,0 +1,5 @@
+# dh-virtualenv installs to /opt/venvs — these are expected
+deluge-common: non-standard-dir-in-usr [opt/venvs/*]
+deluge-common: embedded-library *
+deluge-common: script-not-executable opt/venvs/deluge/bin/*
+deluge-common: unstripped-binary-or-object *

@@ -1,0 +1,2 @@
+opt/venvs/deluge/bin/deluge-gtk usr/bin/deluge-gtk
+opt/venvs/deluge/bin/deluge usr/bin/deluge

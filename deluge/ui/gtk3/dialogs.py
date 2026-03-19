@@ -326,7 +326,7 @@ class AccountDialog(BaseDialog):
             self.set_focus(self.username_entry)
 
         if password:
-            self.password_entry.set_text(username)
+            self.password_entry.set_text(password)
 
         self.vbox.show_all()
 

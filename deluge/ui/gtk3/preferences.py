@@ -1420,7 +1420,7 @@ class Preferences(component.Component):
 
         def dialog_finished(response_id):
             def update_ok(rc):
-                model.set_value(itr, ACCOUNTS_PASSWORD, dialog.account.username)
+                model.set_value(itr, ACCOUNTS_PASSWORD, dialog.account.password)
                 model.set_value(itr, ACCOUNTS_LEVEL, dialog.account.authlevel)
 
             def update_fail(failure):

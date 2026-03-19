@@ -1,0 +1,41 @@
+#!/bin/sh
+
+set -e
+
+DELUGE_USER="debian-deluged"
+DELUGE_GROUP="debian-deluged"
+
+Remove_overrides ()
+{
+	for FILENAME in "${@}"
+	do
+		if dpkg-statoverride --list "${FILENAME}" > /dev/null 2>&1
+		then
+			dpkg-statoverride --remove "${FILENAME}"
+		fi
+	done
+}
+
+case "${1}" in
+	purge)
+		rm -f /var/log/deluged/*
+		rm -rf /var/lib/deluged/config/*
+
+		Remove_overrides /var/log/deluged /var/lib/deluged /var/lib/deluged/config
+
+		userdel ${DELUGE_USER} > /dev/null 2>&1 || true
+		groupdel ${DELUGE_GROUP} > /dev/null 2>&1 || true
+		;;
+
+	remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+		;;
+
+	*)
+		echo "postrm called with unknown argument \`${1}'" >&2
+		exit 1
+		;;
+esac
+
+#DEBHELPER#
+
+exit 0

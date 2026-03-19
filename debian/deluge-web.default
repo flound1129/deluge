@@ -1,0 +1,3 @@
+# Defaults for deluge-web — sourced by systemd service
+# Uncomment to override web UI options
+#DELUGE_WEB_OPTS=""

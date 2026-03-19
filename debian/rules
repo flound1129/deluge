@@ -1,0 +1,57 @@
+#!/usr/bin/make -f
+
+SHELL := sh -e
+
+VERSION := $(shell dpkg-parsechangelog | awk '/^Version: / { print $$2 }' | rev | cut -d- -f2- | rev)
+
+%:
+	dh $@ --with python-virtualenv
+
+override_dh_virtualenv:
+	dh_virtualenv \
+		--install-suffix deluge \
+		--use-system-packages \
+		--package deluge-common
+
+execute_before_dh_virtualenv:
+	echo "$(VERSION)" > RELEASE-VERSION
+
+execute_after_dh_virtualenv:
+	# Unpack plugin eggs
+	cd debian/deluge-common/opt/venvs/deluge/lib/python*/site-packages/deluge/plugins/; \
+	for EGG in *.egg; \
+	do \
+		mkdir -p $${EGG%-py?.*}.egg; \
+		unzip $${EGG} -d $${EGG%-py?.*}.egg; \
+		rm -f $${EGG}; \
+	done
+	# Remove bytecode cache directories
+	find debian/deluge-common -type d -name '__pycache__' | xargs rm -rf
+
+override_dh_strip:
+	dh_strip --exclude=site-packages
+
+override_dh_shlibdeps:
+	dh_shlibdeps --exclude=site-packages
+
+override_dh_auto_test:
+	# disabled
+
+execute_after_dh_auto_clean:
+	rm -f RELEASE-VERSION
+
+	# Remove build artifacts
+	for ITEM in $$(find . -type d -name "*.egg-info" -or -type f -name "*.egg"); \
+	do \
+		rm -rf "$${ITEM}"; \
+	done
+
+	rm -rf deluge/plugins/*/build
+	rm -f deluge/ui/web/js/deluge-all-debug.js
+	rm -f deluge/ui/web/js/extjs/ext-extensions-debug.js
+	rm -f deluge/ui/web/js/gettext.js
+
+	for file in $$(find . -type f -name "*.in"); \
+	do \
+		rm -f "$$(dirname "$${file}")"/"$$(basename "$${file}" .in)"; \
+	done
