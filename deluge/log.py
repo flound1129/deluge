@@ -199,11 +199,7 @@ class TwistedLoggingObserver(PythonLoggingObserver):
             )
             return
 
-        try:
-            PythonLoggingObserver.emit(self, event_dict)
-        except TypeError:
-            # Ignore logging args problem with Python 3.8 and Twisted <= 19
-            pass
+        PythonLoggingObserver.emit(self, event_dict)
 
 
 def tweak_logging_levels():

@@ -234,10 +234,7 @@ class AddTorrentDialog(component.Component):
         log.debug('Tried to add %d duplicate torrents!', count)
         ErrorDialog(
             _('Duplicate torrent(s)'),
-            _(
-                'You cannot add the same torrent twice.'
-                ' %d torrents were already added.'
-            )
+            _('You cannot add the same torrent twice. %d torrents were already added.')
             % count,
             self.dialog,
         ).run()

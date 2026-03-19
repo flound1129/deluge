@@ -428,6 +428,7 @@ class Preferences(component.Component):
             'spin_seeding': ('value', 'max_active_seeding'),
             'spin_downloading': ('value', 'max_active_downloading'),
             'chk_dont_count_slow_torrents': ('active', 'dont_count_slow_torrents'),
+            'chk_announce_to_all_tiers': ('active', 'announce_to_all_tiers'),
             'chk_auto_manage_prefer_seeds': ('active', 'auto_manage_prefer_seeds'),
             'chk_queue_new_top': ('active', 'queue_new_to_top'),
             'spin_share_ratio_limit': ('value', 'share_ratio_limit'),
@@ -497,13 +498,20 @@ class Preferences(component.Component):
 
             widget.set_sensitive(self.is_connected)
 
-            if self.is_connected:
+            if self.is_connected and modifier:
                 value = core_widgets[key][1]
                 try:
                     value = self.core_config[value]
                 except KeyError:
                     if callable(value):
                         value = value()
+                    else:
+                        log.debug(
+                            'Config key %s not found in daemon config, disabling widget',
+                            key,
+                        )
+                        widget.set_sensitive(False)
+                        continue
             elif modifier:
                 value = {
                     'active': False,
@@ -848,6 +856,9 @@ class Preferences(component.Component):
         ).get_value_as_int()
         new_core_config['dont_count_slow_torrents'] = self.builder.get_object(
             'chk_dont_count_slow_torrents'
+        ).get_active()
+        new_core_config['announce_to_all_tiers'] = self.builder.get_object(
+            'chk_announce_to_all_tiers'
         ).get_active()
         new_core_config['auto_manage_prefer_seeds'] = self.builder.get_object(
             'chk_auto_manage_prefer_seeds'

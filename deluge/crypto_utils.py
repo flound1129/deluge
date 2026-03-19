@@ -40,7 +40,7 @@ TLS_CIPHERS = ':'.join(
         'ECDH+CHACHA20',
         'AES256-GCM-SHA384',
         'AES128-GCM-SHA256',
-        '!DSS' '!aNULL',
+        '!DSS!aNULL',
         '!eNULL',
         '!MD5',
     ]

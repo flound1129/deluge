@@ -74,9 +74,11 @@ DEFAULT_PREFS = {
     'max_download_speed': -1.0,
     'max_upload_slots_global': 4,
     'max_half_open_connections': (
-        lambda: deluge.common.windows_check()
-        and (lambda: deluge.common.vista_check() and 4 or 8)()
-        or 50
+        lambda: (
+            deluge.common.windows_check()
+            and (lambda: deluge.common.vista_check() and 4 or 8)()
+            or 50
+        )
     )(),
     'max_connections_per_second': 20,
     'ignore_limits_on_local_network': True,
@@ -90,6 +92,7 @@ DEFAULT_PREFS = {
     'max_active_downloading': 3,
     'max_active_limit': 8,
     'dont_count_slow_torrents': False,
+    'announce_to_all_tiers': False,
     'queue_new_to_top': False,
     'stop_seed_at_ratio': False,
     'remove_seed_at_ratio': False,
@@ -392,6 +395,9 @@ class PreferencesManager(component.Component):
 
     def _on_set_dont_count_slow_torrents(self, key, value):
         self.core.apply_session_setting('dont_count_slow_torrents', value)
+
+    def _on_set_announce_to_all_tiers(self, key, value):
+        self.core.apply_session_setting('announce_to_all_tiers', value)
 
     def _on_set_send_info(self, key, value):
         """sends anonymous stats home"""

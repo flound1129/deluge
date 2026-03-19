@@ -1141,10 +1141,12 @@ class Torrent:
                 'download_location'
             ],  # Deprecated: Use download_location
             'download_location': lambda: self.options['download_location'],
-            'seeds_peers_ratio': lambda: -1.0
-            if self.status.num_incomplete == 0
-            # Use -1.0 to signify infinity
-            else (self.status.num_complete / self.status.num_incomplete),
+            'seeds_peers_ratio': lambda: (
+                -1.0
+                if self.status.num_incomplete == 0
+                # Use -1.0 to signify infinity
+                else (self.status.num_complete / self.status.num_incomplete)
+            ),
             'seed_rank': lambda: self.status.seed_rank,
             'state': lambda: self.state,
             'stop_at_ratio': lambda: self.options['stop_at_ratio'],
@@ -1157,32 +1159,33 @@ class Torrent:
             'total_seeds': lambda: self.status.num_complete,
             'total_uploaded': lambda: self.status.all_time_upload,
             'total_wanted': lambda: self.status.total_wanted,
-            'total_remaining': lambda: self.status.total_wanted
-            - self.status.total_wanted_done,
+            'total_remaining': lambda: (
+                self.status.total_wanted - self.status.total_wanted_done
+            ),
             'tracker': lambda: self.status.current_tracker,
             'tracker_host': self.get_tracker_host,
             'trackers': lambda: self.trackers,
             'tracker_status': lambda: self.tracker_status,
             'upload_payload_rate': lambda: self.status.upload_payload_rate,
-            'comment': lambda: decode_bytes(self.torrent_info.comment())
-            if self.has_metadata
-            else '',
-            'creator': lambda: decode_bytes(self.torrent_info.creator())
-            if self.has_metadata
-            else '',
-            'num_files': lambda: self.torrent_info.num_files()
-            if self.has_metadata
-            else 0,
-            'num_pieces': lambda: self.torrent_info.num_pieces()
-            if self.has_metadata
-            else 0,
-            'piece_length': lambda: self.torrent_info.piece_length()
-            if self.has_metadata
-            else 0,
+            'comment': lambda: (
+                decode_bytes(self.torrent_info.comment()) if self.has_metadata else ''
+            ),
+            'creator': lambda: (
+                decode_bytes(self.torrent_info.creator()) if self.has_metadata else ''
+            ),
+            'num_files': lambda: (
+                self.torrent_info.num_files() if self.has_metadata else 0
+            ),
+            'num_pieces': lambda: (
+                self.torrent_info.num_pieces() if self.has_metadata else 0
+            ),
+            'piece_length': lambda: (
+                self.torrent_info.piece_length() if self.has_metadata else 0
+            ),
             'private': lambda: self.torrent_info.priv() if self.has_metadata else False,
-            'total_size': lambda: self.torrent_info.total_size()
-            if self.has_metadata
-            else 0,
+            'total_size': lambda: (
+                self.torrent_info.total_size() if self.has_metadata else 0
+            ),
             'eta': self.get_eta,
             'file_progress': self.get_file_progress,
             'files': self.get_files,

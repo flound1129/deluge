@@ -20,29 +20,32 @@ log = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
-    """Remove a torrent"""
+    """Remove one or more torrents."""
 
     aliases = ['del']
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--remove_data',
+            '--remove-data',
+            '--remove_data',  # deprecated
             action='store_true',
             default=False,
             help=_('Also removes the torrent data'),
         )
         parser.add_argument(
-            '-c',
+            '-y',
             '--confirm',
             action='store_true',
             default=False,
-            help=_('List the matching torrents without removing.'),
+            help=_('Confirm removal of the listed torrents.'),
         )
         parser.add_argument(
             'torrent_ids',
             metavar='<torrent-id>',
             nargs='+',
-            help=_('One or more torrent ids'),
+            help=_(
+                'One or more torrent ids or names. Supports wildcards, e.g. "*" matches all'
+            ),
         )
 
     def handle(self, options):
@@ -62,7 +65,7 @@ class Command(BaseCommand):
                 name = self.console.get_torrent_name(t_id)
                 self.console.write('* %-50s (%s)' % (name, t_id))
             self.console.write(
-                _('Confirm with -c to remove the listed torrents (Count: %d)')
+                _('Confirm with -y/--confirm to remove the listed torrents (Count: %d)')
                 % len(torrent_ids)
             )
             return defer.succeed(True)

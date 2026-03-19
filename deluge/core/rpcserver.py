@@ -148,7 +148,7 @@ class DelugeRPCProtocol(DelugeTransferProtocol):
         for call in request:
             if len(call) != 4:
                 log.debug(
-                    'Received invalid rpc request: number of items ' 'in request is %s',
+                    'Received invalid rpc request: number of items in request is %s',
                     len(call),
                 )
                 continue

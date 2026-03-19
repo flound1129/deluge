@@ -220,7 +220,7 @@ class AboutDialog:
                     'Deady',
                     'Dereck Wonnacott',
                     'Devgru',
-                    'Devid Antonio Filoni' 'DevilDogTG',
+                    'Devid Antonio FiloniDevilDogTG',
                     'di0rz`',
                     'Dialecti Valsamou',
                     'Diego Medeiros',

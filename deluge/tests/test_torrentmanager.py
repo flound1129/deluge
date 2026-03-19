@@ -35,6 +35,7 @@ class TestTorrentmanager(BaseTestCase):
         self.clock = task.Clock()
         self.tm = self.core.torrentmanager
         self.tm.callLater = self.clock.callLater
+        self.tm.clock = self.clock
         return component.start()
 
     def tear_down(self):
@@ -119,11 +120,14 @@ class TestTorrentmanager(BaseTestCase):
         assert expected == await d
 
     async def test_prefetch_metadata_timeout(self):
-        magnet = 'magnet:?xt=urn:btih:ab570cdd5a17ea1b61e970bb72047de141bce173'
-        d = self.tm.prefetch_metadata(magnet, 30)
-        self.clock.advance(30)
+        magnet = 'magnet:?xt=urn:btih:deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+        timeout = 30
+        d = self.tm.prefetch_metadata(magnet, timeout)
+        # Prefetch won't start running until awaited so use callLater to ensure
+        # clock advance runs after timeout registered and coroutine started.
+        reactor.callLater(0, self.clock.advance, timeout + 1)
         result = await d
-        expected = ('ab570cdd5a17ea1b61e970bb72047de141bce173', b'')
+        expected = ('deadbeefdeadbeefdeadbeefdeadbeefdeadbeef', b'')
         assert result == expected
 
     @pytest.mark.todo

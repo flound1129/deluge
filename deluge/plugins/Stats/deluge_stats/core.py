@@ -93,8 +93,9 @@ class Core(CorePluginBase):
             'dht_cache_nodes': lambda s: s['dht.dht_node_cache'],
             'dht_torrents': lambda s: s['dht.dht_torrents'],
             'num_peers': lambda s: s['peer.num_peers_connected'],
-            'num_connections': lambda s: s['peer.num_peers_connected']
-            + s['peer.num_peers_half_open'],
+            'num_connections': lambda s: (
+                s['peer.num_peers_connected'] + s['peer.num_peers_half_open']
+            ),
         }
 
         # initialize stats object

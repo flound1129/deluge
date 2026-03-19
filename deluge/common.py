@@ -307,13 +307,8 @@ def resource_filename(module: str, path: str) -> str:
     """
     path = Path(path)
 
-    try:
-        with resources.as_file(resources.files(module) / path) as resource_file:
-            return str(resource_file)
-    except AttributeError:
-        # Python <= 3.8
-        with resources.path(module, path.parts[0]) as resource_file:
-            return str(resource_file.joinpath(*path.parts[1:]))
+    with resources.as_file(resources.files(module) / path) as resource_file:
+        return str(resource_file)
 
 
 def open_file(path, timestamp=None):

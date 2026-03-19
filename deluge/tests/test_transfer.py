@@ -139,8 +139,7 @@ class TestDelugeTransferProtocol:
         )
 
         self.msg1_expected_compressed_base64 = (
-            b'AQAAADF4nDvKwJjenp1aGZ+ZV+Lgxfv9PYRXXFLU'
-            b'XZyfm6oAZGTmpad3gAST8vNznAEAJhSQ'
+            b'AQAAADF4nDvKwJjenp1aGZ+ZV+Lgxfv9PYRXXFLUXZyfm6oAZGTmpad3gAST8vNznAEAJhSQ'
         )
         self.msg2_expected_compressed_base64 = (
             b'AQAAAF14nDvGxJzemZ1aGZ+Wk59Y4uTmpKib3g3il+ZlJuenpH'

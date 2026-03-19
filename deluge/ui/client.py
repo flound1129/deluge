@@ -102,7 +102,7 @@ class DelugeRPCProtocol(DelugeTransferProtocol):
             return
         if len(request) < 3:
             log.debug(
-                'Received invalid message: number of items in ' 'response is %s',
+                'Received invalid message: number of items in response is %s',
                 len(request),
             )
             return

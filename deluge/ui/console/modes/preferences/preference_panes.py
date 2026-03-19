@@ -580,6 +580,16 @@ class QueuePane(BasePreferencePane):
             'Ignore slow torrents',
             core_conf['dont_count_slow_torrents'],
         )
+        try:
+            self.add_checked_input(
+                'announce_to_all_tiers',
+                _('Announce to trackers in all tiers (one per tier)'),
+                core_conf['announce_to_all_tiers'],
+            )
+        except KeyError:
+            log.debug(
+                'Config key announce_to_all_tiers not supported by daemon, skipping'
+            )
         self.add_checked_input(
             'auto_manage_prefer_seeds',
             'Prefer seeding torrents',

@@ -456,6 +456,8 @@ Deluge.ux.ScheduleSelector = Ext.extend(Ext.form.FieldSet, {
     getConfig: function () {
         var config = [];
 
+        if (!this.scheduleCells) return null;
+
         for (var i = 0; i < 24; i++) {
             var hourConfig = [0, 0, 0, 0, 0, 0, 0];
 
@@ -472,15 +474,13 @@ Deluge.ux.ScheduleSelector = Ext.extend(Ext.form.FieldSet, {
     },
 
     setConfig: function (config) {
+        if (!this.scheduleCells) return;
+
         for (var i = 0; i < 24; i++) {
             var hourConfig = config[i];
 
             for (var j = 0; j < this.daysOfWeek.length; j++) {
-                if (this.scheduleCells == undefined) {
-                    var cell = hourConfig[j];
-                } else {
-                    var cell = this.scheduleCells[this.daysOfWeek[j]][i];
-                }
+                var cell = this.scheduleCells[this.daysOfWeek[j]][i];
                 cell.currentValue = cell.oldValue = hourConfig[j];
                 this.updateCell(cell);
             }
@@ -576,7 +576,9 @@ Deluge.ux.preferences.SchedulerPage = Ext.extend(Ext.Panel, {
         // build settings object
         var config = {};
 
-        config['button_state'] = this.schedule.getConfig();
+        var buttonState = this.schedule.getConfig();
+        if (buttonState === null) return;
+        config['button_state'] = buttonState;
         config['low_down'] = this.downloadLimit.getValue();
         config['low_up'] = this.uploadLimit.getValue();
         config['low_active'] = this.activeTorrents.getValue();
