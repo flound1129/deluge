@@ -1413,7 +1413,8 @@ class PathChooserComboBox(Gtk.Box, StoredValuesPopup, GObject.GObject):
         # Enter should confirm the dialog instead of opening the popup.
         elif key_is_enter(keyval):
             if isinstance(self.get_toplevel(), Gtk.Dialog):
-                return False
+                self.get_toplevel().activate_default()
+                return True
             # This sets the toggle active which results in
             # on_button_toggle_dropdown_toggled being called which initiates the popup
             self.button_toggle.set_active(True)
