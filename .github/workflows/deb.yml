@@ -30,6 +30,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Enable universe (Ubuntu only)
+        if: matrix.distro == 'ubuntu'
+        run: apt-get install -y software-properties-common && add-apt-repository universe
+
       - name: Install build dependencies
         run: |
           apt-get update
