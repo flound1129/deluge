@@ -7,6 +7,15 @@ VERSION := $(shell dpkg-parsechangelog | awk '/^Version: / { print $$2 }' | rev 
 %:
 	dh $@ --with python-virtualenv
 
+override_dh_auto_configure:
+	# dh_virtualenv handles the Python build
+
+override_dh_auto_build:
+	# dh_virtualenv handles the Python build
+
+override_dh_auto_install:
+	# dh_virtualenv handles the Python build
+
 override_dh_virtualenv:
 	dh_virtualenv \
 		--install-suffix deluge \
