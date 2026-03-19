@@ -64,10 +64,11 @@ jobs:
       - name: Inject build version
         env:
           EPOCH: ${{ needs.setup.outputs.epoch }}
+          CODENAME: ${{ matrix.version }}
         run: |
           PKG_VER=$(dpkg-parsechangelog -S Version)
           BASE_VER="${PKG_VER%-*}"
-          NEW_VER="${BASE_VER}+${EPOCH}-1"
+          NEW_VER="${BASE_VER}+${CODENAME}.${EPOCH}-1"
           sed -i "1s/${PKG_VER}/${NEW_VER}/" debian/changelog
 
       - name: Build packages
