@@ -1,0 +1,56 @@
+name: Debian Packages
+
+on:
+  push:
+    branches:
+      - develop
+    tags:
+      - "deluge-*"
+  workflow_dispatch:
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        include:
+          - distro: debian
+            version: trixie
+            image: debian:trixie
+          - distro: ubuntu
+            version: noble
+            image: ubuntu:24.04
+
+    container:
+      image: ${{ matrix.image }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential \
+            debhelper \
+            dh-virtualenv \
+            intltool \
+            python3 \
+            python3-gi \
+            python3-gi-cairo \
+            python3-libtorrent \
+            unzip
+
+      - name: Build packages
+        run: dpkg-buildpackage -us -uc -b
+
+      - name: Collect debs
+        run: mkdir -p dist && mv ../*.deb dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: debs-${{ matrix.distro }}-${{ matrix.version }}
+          path: dist/*.deb
