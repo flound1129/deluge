@@ -477,6 +477,13 @@ class TorrentManager(component.Component):
             add_torrent_params['name'] = options['name']
         if options['pre_allocate_storage']:
             add_torrent_params['storage_mode'] = lt.storage_mode_t.storage_mode_allocate
+        # Pass file priorities at add time so libtorrent's storage layer respects them
+        # before any space is allocated or pieces are queued. Without this, libtorrent
+        # allocates storage for all files (including skipped ones) and may begin
+        # downloading them before set_file_priorities() is called post-add.
+        # Only set for torrents with metadata; magnets get priorities via on_metadata_received().
+        if options['file_priorities'] and torrent_info:
+            add_torrent_params['file_priorities'] = options['file_priorities']
         if resume_data:
             add_torrent_params['resume_data'] = resume_data
 

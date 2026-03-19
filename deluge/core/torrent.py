@@ -535,14 +535,31 @@ class Torrent:
             log.debug('Unable to set new file priorities.')
             file_priorities = self.handle.get_file_priorities()
 
-        if 0 in self.options['file_priorities']:
-            # Previously marked a file 'skip' so check for any 0's now >0.
-            for index, priority in enumerate(self.options['file_priorities']):
+        prev_priorities = self.options['file_priorities']
+        if prev_priorities:
+            for index, priority in enumerate(prev_priorities):
                 if priority == 0 and file_priorities[index] > 0:
                     # Changed priority from skip to download so update state.
                     self.is_finished = False
                     self.update_state()
                     break
+
+        # Remove any partial files that were written for files now being skipped.
+        # Boundary pieces for adjacent wanted files can leave corrupt partial data
+        # on disk for skipped files; delete them so they don't appear as corrupt files.
+        if 0 in file_priorities:
+            ti = self.torrent_info
+            save_path = self.options['download_location']
+            for index, priority in enumerate(file_priorities):
+                was_not_skipped = not prev_priorities or prev_priorities[index] != 0
+                if priority == 0 and was_not_skipped:
+                    file_path = os.path.join(save_path, ti.file_at(index).path)
+                    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+                        log.debug('Removing partial skipped file: %s', file_path)
+                        try:
+                            os.remove(file_path)
+                        except OSError as ex:
+                            log.warning('Unable to remove skipped file %s: %s', file_path, ex)
 
         # Store the priorities.
         self.options['file_priorities'] = file_priorities
