@@ -4,12 +4,20 @@ on:
   push:
     branches:
       - develop
-    tags:
-      - "deluge-*"
   workflow_dispatch:
 
 jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      epoch: ${{ steps.epoch.outputs.epoch }}
+    steps:
+      - name: Generate build timestamp
+        id: epoch
+        run: echo "epoch=$(date +%s)" >> $GITHUB_OUTPUT
+
   build-deb:
+    needs: setup
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -53,6 +61,15 @@ jobs:
             python3-libtorrent \
             unzip
 
+      - name: Inject build version
+        env:
+          EPOCH: ${{ needs.setup.outputs.epoch }}
+        run: |
+          PKG_VER=$(dpkg-parsechangelog -S Version)
+          BASE_VER="${PKG_VER%-*}"
+          NEW_VER="${BASE_VER}+${EPOCH}-1"
+          sed -i "1s/${PKG_VER}/${NEW_VER}/" debian/changelog
+
       - name: Build packages
         run: dpkg-buildpackage -us -uc -b
 
@@ -76,7 +93,7 @@ jobs:
           path: dist/*.deb
 
   publish:
-    needs: build-deb
+    needs: [setup, build-deb]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -94,8 +111,12 @@ jobs:
 
       - name: Get release tag
         id: tag
+        env:
+          EPOCH: ${{ needs.setup.outputs.epoch }}
         run: |
-          VERSION=$(dpkg-parsechangelog -S Version | sed 's/-[^-]*$//' | sed 's/~/./')
+          PKG_VER=$(dpkg-parsechangelog -S Version)
+          BASE_VER="${PKG_VER%-*}"
+          VERSION=$(echo "${BASE_VER}+${EPOCH}" | sed 's/~/./' | sed 's/+/./')
           echo "tag=debs-${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Publish to GitHub release
