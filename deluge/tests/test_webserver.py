@@ -50,10 +50,7 @@ class TestWebServer(WebServerTestBase, WebServerMockBase):
         )
         body = await twisted.web.client.readBody(response)
 
-        try:
-            json = json_lib.loads(body.decode())
-        except Exception:
-            print('aoeu')
+        json = json_lib.loads(body.decode())
         assert json['error'] is None
         assert 'torrent_filehash' == json['result']['name']
 

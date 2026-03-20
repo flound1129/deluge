@@ -24,10 +24,7 @@ from deluge.core.rpcserver import RPCServer
 from deluge.core.torrent import Torrent
 from deluge.core.torrentmanager import TorrentManager, TorrentState
 
-try:
-    from unittest.mock import AsyncMock
-except ImportError:
-    from mock import AsyncMock
+from unittest.mock import AsyncMock
 
 
 class TestTorrent(BaseTestCase):

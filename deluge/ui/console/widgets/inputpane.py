@@ -370,7 +370,7 @@ class BaseInputPane(InputKeyHandler):
 
             if ipt.default_col != -1:
                 default_col = int(ipt.default_col)
-                if isinstance(ipt.default_col, ''.__class__) and ipt.default_col[0] in [
+                if isinstance(ipt.default_col, str) and ipt.default_col[0] in [
                     '+',
                     '-',
                 ]:

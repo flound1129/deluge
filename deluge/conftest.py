@@ -70,9 +70,6 @@ def config_dir(tmp_path):
 
 @pytest_twisted.async_yield_fixture
 async def client(request, config_dir, monkeypatch, listen_port):
-    # monkeypatch.setattr(
-    #     _client, 'connect', functools.partial(_client.connect, port=listen_port)
-    # )
     username, password = get_localhost_auth()
     if not (username and password):
         raise ValueError('No localhost username or password found')

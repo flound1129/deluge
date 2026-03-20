@@ -46,6 +46,7 @@ def mean(items):
     try:
         return sum(items) // len(items)
     except Exception:
+        log.debug('Failed to calculate mean, returning 0')
         return 0
 
 

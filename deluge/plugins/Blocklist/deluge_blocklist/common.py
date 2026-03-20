@@ -117,50 +117,18 @@ class IP:
     def quadrants(self):
         return (self.q1, self.q2, self.q3, self.q4)
 
-    #    def next_ip(self):
-    #        (q1, q2, q3, q4) = self.quadrants()
-    #        if q4 >= 255:
-    #            if q3 >= 255:
-    #                if q2 >= 255:
-    #                    if q1 >= 255:
-    #                        raise BadIP(_('There is not a next IP address'))
-    #                    q1 += 1
-    #                else:
-    #                    q2 += 1
-    #            else:
-    #                q3 += 1
-    #        else:
-    #            q4 += 1
-    #        return IP(q1, q2, q3, q4)
-    #
-    #    def previous_ip(self):
-    #        (q1, q2, q3, q4) = self.quadrants()
-    #        if q4 <= 1:
-    #            if q3 <= 1:
-    #                if q2 <= 1:
-    #                    if q1 <= 1:
-    #                        raise BadIP(_('There is not a previous IP address'))
-    #                    q1 -= 1
-    #                else:
-    #                    q2 -= 1
-    #            else:
-    #                q3 -= 1
-    #        else:
-    #            q4 -= 1
-    #        return IP(q1, q2, q3, q4)
-
     def __lt__(self, other):
-        if isinstance(other, ''.__class__):
+        if isinstance(other, str):
             other = IP.parse(other)
         return self.long < other.long
 
     def __gt__(self, other):
-        if isinstance(other, ''.__class__):
+        if isinstance(other, str):
             other = IP.parse(other)
         return self.long > other.long
 
     def __eq__(self, other):
-        if isinstance(other, ''.__class__):
+        if isinstance(other, str):
             other = IP.parse(other)
         return self.long == other.long
 

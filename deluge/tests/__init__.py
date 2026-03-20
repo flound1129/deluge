@@ -11,7 +11,6 @@ else:
         resource.setrlimit(resource.RLIMIT_NOFILE, (65536, 65536))
     except (ValueError, resource.error) as ex:
         error = 'Failed to raise file descriptor limit: %s' % ex
-        # print(error)
 
 # Initialize gettext
 setup_translation()

@@ -47,18 +47,14 @@ class TransferTestClass(DelugeTransferProtocol):
 
     def data_received_old_protocol(self, data):
         """
-        This is the original method logic (as close as possible) for handling data receival on the client
+        Original method logic for handling data receival on the client.
 
         :param data: a zlib compressed string encoded with rencode.
 
         """
         import zlib
 
-        print('\n=== New Data Received ===\nBytes received:', len(data))
-
         if self._buffer:
-            # We have some data from the last dataReceived() so lets prepend it
-            print('Current buffer:', len(self._buffer) if self._buffer else '0')
             data = self._buffer + data
             self._buffer = None
 
@@ -66,41 +62,18 @@ class TransferTestClass(DelugeTransferProtocol):
         self._bytes_received += len(data)
 
         while data:
-            print('\n-- Handle packet data --')
-
-            print('Bytes received:', self._bytes_received)
-            print('Current data:', len(data))
-
             if self._message_length == 0:
-                # handle_new_message uses _buffer so set data to _buffer.
                 self._buffer = data
                 self._handle_new_message()
                 data = self._buffer
                 self._buffer = None
                 self.packet_count = 1
-                print('New message of length:', self._message_length)
 
             dobj = zlib.decompressobj()
             try:
                 request = rencode.loads(dobj.decompress(data))
-                print('Successfully loaded message', end=' ')
-                print(
-                    ' - Buffer length: %d, data length: %d, unused length: %d'
-                    % (
-                        len(data),
-                        len(data) - len(dobj.unused_data),
-                        len(dobj.unused_data),
-                    )
-                )
-                print('Packet count:', self.packet_count)
-            except Exception as ex:
-                # log.debug('Received possible invalid message (%r): %s', data, e)
-                # This could be cut-off data, so we'll save this in the buffer
-                # and try to prepend it on the next dataReceived()
+            except Exception:
                 self._buffer = data
-                print(
-                    'Failed to load buffer (size %d): %s' % (len(self._buffer), str(ex))
-                )
                 return
             else:
                 data = dobj.unused_data
@@ -244,79 +217,6 @@ class TestDelugeTransferProtocol:
         message3 = self.transfer.get_messages_in().pop(0)
         assert rencode.dumps(self.msg1) == rencode.dumps(message3)
 
-    # Remove underscore to enable test, or run the test directly:
-    def _test_rencode_fail_protocol(self):
-        """
-        This test tries to test the protocol that relies on errors from rencode.
-
-        """
-        msg_bytes = (
-            base64.b64decode(self.msg1_expected_compressed_base64)
-            + base64.b64decode(self.msg2_expected_compressed_base64)
-            + base64.b64decode(self.msg1_expected_compressed_base64)
-        )
-        packet_size = 149
-
-        one_message_byte_count = len(
-            base64.b64decode(self.msg1_expected_compressed_base64)
-        )
-        two_messages_byte_count = one_message_byte_count + len(
-            base64.b64decode(self.msg2_expected_compressed_base64)
-        )
-        three_messages_byte_count = two_messages_byte_count + len(
-            base64.b64decode(self.msg1_expected_compressed_base64)
-        )
-
-        print()
-
-        print(
-            'Msg1 size:',
-            len(base64.b64decode(self.msg1_expected_compressed_base64)) - 4,
-        )
-        print(
-            'Msg2 size:',
-            len(base64.b64decode(self.msg2_expected_compressed_base64)) - 4,
-        )
-        print(
-            'Msg3 size:',
-            len(base64.b64decode(self.msg1_expected_compressed_base64)) - 4,
-        )
-
-        print('one_message_byte_count:', one_message_byte_count)
-        print('two_messages_byte_count:', two_messages_byte_count)
-        print('three_messages_byte_count:', three_messages_byte_count)
-
-        for d in self.receive_parts_helper(
-            msg_bytes, packet_size, self.transfer.data_received_old_protocol
-        ):
-            bytes_received = self.transfer.get_bytes_recv()
-
-            if bytes_received >= three_messages_byte_count:
-                expected_msgs_received_count = 3
-            elif bytes_received >= two_messages_byte_count:
-                expected_msgs_received_count = 2
-            elif bytes_received >= one_message_byte_count:
-                expected_msgs_received_count = 1
-            else:
-                expected_msgs_received_count = 0
-            # Verify that the expected number of complete messages has arrived
-            if expected_msgs_received_count != len(self.transfer.get_messages_in()):
-                print(
-                    'Expected number of messages received is %d, but %d have been received.'
-                    % (
-                        expected_msgs_received_count,
-                        len(self.transfer.get_messages_in()),
-                    )
-                )
-
-        # Get the data as received by DelugeTransferProtocol
-        message1 = self.transfer.get_messages_in().pop(0)
-        assert rencode.dumps(self.msg1) == rencode.dumps(message1)
-        message2 = self.transfer.get_messages_in().pop(0)
-        assert rencode.dumps(self.msg2) == rencode.dumps(message2)
-        message3 = self.transfer.get_messages_in().pop(0)
-        assert rencode.dumps(self.msg1) == rencode.dumps(message3)
-
     def test_receive_middle_of_header(self):
         """
         This test concatenates two messsages (as they're sent over the network),
@@ -351,36 +251,6 @@ class TestDelugeTransferProtocol:
         assert rencode.dumps(self.msg1) == rencode.dumps(message1)
         message2 = self.transfer.get_messages_in().pop(0)
         assert rencode.dumps(self.msg2) == rencode.dumps(message2)
-
-    # Needs file containing big data structure e.g. like thetorrent list as it is transfered by the daemon
-    # def test_simulate_big_transfer(self):
-    #    filename = '../deluge.torrentlist'
-    #
-    #    f = open(filename, 'r')
-    #    data = f.read()
-    #    message_to_send = eval(data)
-    #    self.transfer.transfer_message(message_to_send)
-    #
-    # Get the data as sent to the network by DelugeTransferProtocol
-    #    compressed_data = self.transfer.get_messages_out_joined()
-    # packet_size = 16000 # Or something smaller...
-    #
-    #    for d in self.receive_parts_helper(compressed_data, packet_size):
-    #        bytes_recv = self.transfer.get_bytes_recv()
-    #        if bytes_recv < len(compressed_data):
-    #            self.assertEqual(len(self.transfer.get_messages_in()), 0)
-    #        else:
-    #            self.assertEqual(len(self.transfer.get_messages_in()), 1)
-    # Get the data as received by DelugeTransferProtocol
-    #    transfered_message = self.transfer.get_messages_in().pop(0)
-    # Test that the data structures are equal
-    # self.assertEqual(transfered_message, message_to_send)
-    # self.assertTrue(transfered_message == message_to_send)
-    #
-    # f.close()
-    # f = open('rencode.torrentlist', 'w')
-    # f.write(str(transfered_message))
-    # f.close()
 
     def receive_parts_helper(self, data, packet_size, receive_func=None):
         byte_count = len(data)

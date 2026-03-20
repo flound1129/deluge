@@ -63,6 +63,7 @@ class BaseReader:
                     ):
                         valid = False
                 except Exception:
+                    log.debug('Failed to parse blocklist line for validation')
                     valid = False
                 break
         blocklist.close()

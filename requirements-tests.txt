@@ -3,7 +3,6 @@ pytest
 pytest-twisted
 pytest-cov
 pytest-rerunfailures
-mock
 pre-commit
 pylint
 cryptography

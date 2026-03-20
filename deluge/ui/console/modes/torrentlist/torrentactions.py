@@ -143,7 +143,7 @@ def action_torrent_info(mode=None, torrent_ids=None, **kwargs):
         for field in TORRENT_OPTIONS:
             caption = '{!info!}' + TORRENT_DATA_FIELD[field]['name']
             value = options[field]
-            if isinstance(value, ''.__class__):
+            if isinstance(value, str):
                 option_popup.add_text_input(field, caption, value)
             elif isinstance(value, bool):
                 choices = (['Yes', 'No'], [True, False], [True, False].index(value))

@@ -12,9 +12,9 @@ import glob
 import os
 import platform
 import sys
-from distutils.command.build import build as _build
-from distutils.command.clean import clean as _clean
-from distutils.command.install_data import install_data as _install_data
+from setuptools.command.build import build as _build
+from setuptools.command.clean import clean as _clean
+from setuptools.command.install_data import install_data as _install_data
 from shutil import rmtree, which
 
 from setuptools import Command, find_packages, setup
@@ -520,9 +520,6 @@ _package_data['deluge.ui.gtk3'] = ['glade/*.ui']
 setup_requires = ['setuptools', 'wheel']
 install_requires = [
     'twisted[tls]>=17.1',
-    # Add pyasn1 for setuptools workaround:
-    #   https://github.com/pypa/setuptools/issues/1510
-    'pyasn1',
     'rencode',
     'pyopenssl',
     'pyxdg',

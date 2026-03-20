@@ -122,8 +122,7 @@ def create_plugin():
     os.system(dev_link_path)
 
 
-CORE = """from __future__ import unicode_literals
-
+CORE = """
 import logging
 
 import deluge.configmanager
@@ -222,8 +221,7 @@ setup(
 )
 """
 
-COMMON = """from __future__ import unicode_literals
-
+COMMON = """
 import os.path
 
 from pkg_resources import resource_filename
@@ -233,8 +231,7 @@ def get_resource(filename):
     return resource_filename(__package__, os.path.join('data', filename))
 """
 
-GTK3UI = """from __future__ import unicode_literals
-
+GTK3UI = """
 import logging
 
 from gi.repository import Gtk
@@ -311,8 +308,7 @@ GLADE = """<?xml version="1.0" encoding="UTF-8"?>
 </interface>
 """
 
-WEBUI = """from __future__ import unicode_literals
-
+WEBUI = """
 import logging
 
 from deluge.plugins.pluginbase import WebPluginBase
@@ -365,8 +361,7 @@ DEFAULT_JS = """/**
 new %(name)sPlugin();
 """
 
-GPL = """# -*- coding: utf-8 -*-
-# Copyright (C) %(current_year)d %(author_name)s <%(author_email)s>
+GPL = """# Copyright (C) %(current_year)d %(author_name)s <%(author_email)s>
 #
 # Basic plugin template created by the Deluge Team.
 #

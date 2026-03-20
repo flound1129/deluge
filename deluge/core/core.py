@@ -39,7 +39,7 @@ from deluge.core.pluginmanager import PluginManager
 from deluge.core.preferencesmanager import PreferencesManager
 from deluge.core.rpcserver import export
 from deluge.core.torrentmanager import TorrentManager
-from deluge.decorators import deprecated, maybe_coroutine
+from deluge.decorators import maybe_coroutine
 from deluge.error import (
     AddTorrentError,
     DelugeError,
@@ -971,77 +971,53 @@ class Core(component.Component):
     def get_magnet_uri(self, torrent_id: str) -> str:
         return self.torrentmanager[torrent_id].get_magnet_uri()
 
-    @deprecated
     @export
     def set_torrent_max_connections(self, torrent_id, value):
-        """Deprecated: Use set_torrent_options with 'max_connections'"""
-        self.set_torrent_options([torrent_id], {'max_connections': value})
+        raise NotImplementedError('Use set_torrent_options')
 
-    @deprecated
     @export
     def set_torrent_max_upload_slots(self, torrent_id, value):
-        """Deprecated: Use set_torrent_options with 'max_upload_slots'"""
-        self.set_torrent_options([torrent_id], {'max_upload_slots': value})
+        raise NotImplementedError('Use set_torrent_options')
 
-    @deprecated
     @export
     def set_torrent_max_upload_speed(self, torrent_id, value):
-        """Deprecated: Use set_torrent_options with 'max_upload_speed'"""
-        self.set_torrent_options([torrent_id], {'max_upload_speed': value})
+        raise NotImplementedError('Use set_torrent_options')
 
-    @deprecated
     @export
     def set_torrent_max_download_speed(self, torrent_id, value):
-        """Deprecated: Use set_torrent_options with 'max_download_speed'"""
-        self.set_torrent_options([torrent_id], {'max_download_speed': value})
+        raise NotImplementedError('Use set_torrent_options')
 
-    @deprecated
     @export
     def set_torrent_file_priorities(self, torrent_id, priorities):
-        """Deprecated: Use set_torrent_options with 'file_priorities'"""
-        self.set_torrent_options([torrent_id], {'file_priorities': priorities})
+        raise NotImplementedError('Use set_torrent_options')
 
-    @deprecated
     @export
     def set_torrent_prioritize_first_last(self, torrent_id, value):
-        """Deprecated: Use set_torrent_options with 'prioritize_first_last'"""
-        self.set_torrent_options([torrent_id], {'prioritize_first_last_pieces': value})
+        raise NotImplementedError('Use set_torrent_options')
 
-    @deprecated
     @export
     def set_torrent_auto_managed(self, torrent_id, value):
-        """Deprecated: Use set_torrent_options with 'auto_managed'"""
-        self.set_torrent_options([torrent_id], {'auto_managed': value})
+        raise NotImplementedError('Use set_torrent_options')
 
-    @deprecated
     @export
     def set_torrent_stop_at_ratio(self, torrent_id, value):
-        """Deprecated: Use set_torrent_options with 'stop_at_ratio'"""
-        self.set_torrent_options([torrent_id], {'stop_at_ratio': value})
+        raise NotImplementedError('Use set_torrent_options')
 
-    @deprecated
     @export
     def set_torrent_stop_ratio(self, torrent_id, value):
-        """Deprecated: Use set_torrent_options with 'stop_ratio'"""
-        self.set_torrent_options([torrent_id], {'stop_ratio': value})
+        raise NotImplementedError('Use set_torrent_options')
 
-    @deprecated
     @export
     def set_torrent_remove_at_ratio(self, torrent_id, value):
-        """Deprecated: Use set_torrent_options with 'remove_at_ratio'"""
-        self.set_torrent_options([torrent_id], {'remove_at_ratio': value})
+        raise NotImplementedError('Use set_torrent_options')
 
-    @deprecated
     @export
     def set_torrent_move_completed(self, torrent_id, value):
-        """Deprecated: Use set_torrent_options with 'move_completed'"""
-        self.set_torrent_options([torrent_id], {'move_completed': value})
+        raise NotImplementedError('Use set_torrent_options')
 
-    @deprecated
     @export
     def set_torrent_move_completed_path(self, torrent_id, value):
-        """Deprecated: Use set_torrent_options with 'move_completed_path'"""
-        self.set_torrent_options([torrent_id], {'move_completed_path': value})
+        raise NotImplementedError('Use set_torrent_options')
 
     @export
     def get_path_size(self, path):

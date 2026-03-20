@@ -1031,6 +1031,7 @@ class Preferences(component.Component):
         try:
             value = widget.get_active()
         except Exception:
+            log.debug('Failed to get active state for widget in on_toggle')
             return
 
         path_choosers = {

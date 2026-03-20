@@ -1690,7 +1690,6 @@ if __name__ == '__main__':
     )
 
     entry2.set_filechooser_button_visible(False)
-    # entry2.set_enable_properties(False)
     entry2.set_filechooser_button_enabled(False)
 
     def list_value_added_event(widget, values):
