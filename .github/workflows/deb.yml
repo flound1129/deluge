@@ -126,7 +126,7 @@ jobs:
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
           gh release create "$TAG" \
-            --title "Deluge packages ($TAG)" \
+            --title "Squall packages ($TAG)" \
             --prerelease \
             --notes "Automated deb build" 2>/dev/null || true
           gh release upload "$TAG" dist/*.deb --clobber

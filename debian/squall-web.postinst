@@ -2,8 +2,8 @@
 
 set -e
 
-DELUGE_WEB_USER="debian-deluge-web"
-DELUGE_WEB_GROUP="debian-deluge-web"
+DELUGE_WEB_USER="debian-squall-web"
+DELUGE_WEB_GROUP="debian-squall-web"
 
 case "${1}" in
 	configure)
@@ -14,7 +14,7 @@ case "${1}" in
 
 		if ! getent passwd ${DELUGE_WEB_USER} > /dev/null 2>&1
 		then
-			useradd --system -g ${DELUGE_WEB_GROUP} --home-dir /var/lib/deluge-web \
+			useradd --system -g ${DELUGE_WEB_GROUP} --home-dir /var/lib/squall-web \
 				--shell /usr/sbin/nologin ${DELUGE_WEB_USER}
 		fi
 		;;

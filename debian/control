@@ -1,4 +1,4 @@
-Source: deluge
+Source: squall
 Section: net
 Priority: optional
 Maintainer: Maintainer <maintainer@example.com>
@@ -16,24 +16,24 @@ Rules-Requires-Root: no
 Standards-Version: 4.7.2
 Homepage: https://deluge-torrent.org
 
-Package: deluge
+Package: squall
 Architecture: all
 Depends:
- deluge-gtk (= ${source:Version}),
+ squall-gtk (= ${source:Version}),
  ${misc:Depends},
 Description: lightweight, lean BitTorrent client (metapackage)
  Squall is a lightweight, lean BitTorrent client written in Python. It uses
  a client-server model supporting multiple user-interfaces that can connect
  to a (headless) daemon running on a server:
  .
-   * deluge-gtk: graphical UI using GTK
-   * deluge-console: text UI using ncurses
-   * deluge-web: web frontend
+   * squall-gtk: graphical UI using GTK
+   * squall-console: text UI using ncurses
+   * squall-web: web frontend
  .
  This package is a metapackage depending on the graphical UI and the
  daemon for running Squall on a single machine.
 
-Package: deluge-common
+Package: squall-common
 Architecture: all
 Depends:
  python3-gi,
@@ -42,28 +42,28 @@ Depends:
 Description: lightweight, lean BitTorrent client (common)
  Squall is a lightweight, lean BitTorrent client written in Python. It uses
  a client-server model supporting multiple user-interfaces that can connect
- to a (headless) deluged running on a server.
+ to a (headless) squall-daemon running on a server.
  .
  This package contains the shared virtualenv and files between the clients
  and the server.
 
-Package: deluge-console
+Package: squall-console
 Architecture: all
 Depends:
- deluge-common (= ${source:Version}),
+ squall-common (= ${source:Version}),
  python3-libtorrent,
  ${misc:Depends},
 Description: lightweight, lean BitTorrent client (text UI)
  Squall is a lightweight, lean BitTorrent client written in Python. It uses
  a client-server model supporting multiple user-interfaces that can connect
- to a (headless) deluged running on a server.
+ to a (headless) squall-daemon running on a server.
  .
  This package contains the text user-interface (ncurses).
 
-Package: deluge-gtk
+Package: squall-gtk
 Architecture: all
 Depends:
- deluge-common (= ${source:Version}),
+ squall-common (= ${source:Version}),
  gir1.2-gtk-3.0,
  libnotify4,
  librsvg2-common,
@@ -74,37 +74,37 @@ Depends:
 Description: lightweight, lean BitTorrent client (graphical UI)
  Squall is a lightweight, lean BitTorrent client written in Python. It uses
  a client-server model supporting multiple user-interfaces that can connect
- to a (headless) deluged running on a server.
+ to a (headless) squall-daemon running on a server.
  .
  This package contains the graphical user-interface (GTK).
 
-Package: deluge-web
+Package: squall-web
 Architecture: all
 Pre-Depends:
  ${misc:Pre-Depends},
 Depends:
- deluge-common (= ${source:Version}),
+ squall-common (= ${source:Version}),
  passwd,
  ${misc:Depends},
 Description: lightweight, lean BitTorrent client (web frontend)
  Squall is a lightweight, lean BitTorrent client written in Python. It uses
  a client-server model supporting multiple user-interfaces that can connect
- to a (headless) deluged running on a server.
+ to a (headless) squall-daemon running on a server.
  .
  This package contains the web frontend.
 
-Package: deluged
+Package: squall-daemon
 Architecture: all
 Pre-Depends:
  ${misc:Pre-Depends},
 Depends:
- deluge-common (= ${source:Version}),
+ squall-common (= ${source:Version}),
  passwd,
  python3-libtorrent,
  ${misc:Depends},
 Description: lightweight, lean BitTorrent client (server)
  Squall is a lightweight, lean BitTorrent client written in Python. It uses
  a client-server model supporting multiple user-interfaces that can connect
- to a (headless) deluged running on a server.
+ to a (headless) squall-daemon running on a server.
  .
  This package contains the server.

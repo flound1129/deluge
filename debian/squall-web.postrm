@@ -2,13 +2,13 @@
 
 set -e
 
-DELUGE_WEB_USER="debian-deluge-web"
-DELUGE_WEB_GROUP="debian-deluge-web"
+DELUGE_WEB_USER="debian-squall-web"
+DELUGE_WEB_GROUP="debian-squall-web"
 
 case "${1}" in
 	purge)
-		rm -f /var/log/deluge-web/*
-		rm -rf /var/lib/deluge-web
+		rm -f /var/log/squall-web/*
+		rm -rf /var/lib/squall-web
 
 		userdel ${DELUGE_WEB_USER} > /dev/null 2>&1 || true
 		groupdel ${DELUGE_WEB_GROUP} > /dev/null 2>&1 || true

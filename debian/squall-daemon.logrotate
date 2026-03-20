@@ -1,4 +1,4 @@
-/var/log/deluged/daemon.log {
+/var/log/squall-daemon/daemon.log {
     weekly
     rotate 8
     compress

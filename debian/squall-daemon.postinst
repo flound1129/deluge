@@ -2,8 +2,8 @@
 
 set -e
 
-DELUGE_USER="debian-deluged"
-DELUGE_GROUP="debian-deluged"
+DELUGE_USER="debian-squall-daemon"
+DELUGE_GROUP="debian-squall-daemon"
 
 Add_override ()
 {
@@ -22,13 +22,13 @@ case "${1}" in
 
 		if ! getent passwd ${DELUGE_USER} > /dev/null 2>&1
 		then
-			useradd --system -g ${DELUGE_GROUP} --home-dir /var/lib/deluged \
+			useradd --system -g ${DELUGE_GROUP} --home-dir /var/lib/squall-daemon \
 				--shell /usr/sbin/nologin ${DELUGE_USER}
 		fi
 
-		Add_override ${DELUGE_USER} adm 2750 /var/log/deluged
-		Add_override ${DELUGE_USER} ${DELUGE_GROUP} 0750 /var/lib/deluged
-		Add_override ${DELUGE_USER} ${DELUGE_GROUP} 0750 /var/lib/deluged/config
+		Add_override ${DELUGE_USER} adm 2750 /var/log/squall-daemon
+		Add_override ${DELUGE_USER} ${DELUGE_GROUP} 0750 /var/lib/squall-daemon
+		Add_override ${DELUGE_USER} ${DELUGE_GROUP} 0750 /var/lib/squall-daemon/config
 		;;
 
 	abort-upgrade|abort-remove|abort-deconfigure)

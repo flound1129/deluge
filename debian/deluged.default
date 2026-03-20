@@ -1,3 +1,0 @@
-# Defaults for deluged — sourced by systemd service
-# Uncomment to override daemon options
-#DELUGED_OPTS=""

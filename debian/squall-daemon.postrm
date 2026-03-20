@@ -2,8 +2,8 @@
 
 set -e
 
-DELUGE_USER="debian-deluged"
-DELUGE_GROUP="debian-deluged"
+DELUGE_USER="debian-squall-daemon"
+DELUGE_GROUP="debian-squall-daemon"
 
 Remove_overrides ()
 {
@@ -18,10 +18,10 @@ Remove_overrides ()
 
 case "${1}" in
 	purge)
-		rm -f /var/log/deluged/*
-		rm -rf /var/lib/deluged/config/*
+		rm -f /var/log/squall-daemon/*
+		rm -rf /var/lib/squall-daemon/config/*
 
-		Remove_overrides /var/log/deluged /var/lib/deluged /var/lib/deluged/config
+		Remove_overrides /var/log/squall-daemon /var/lib/squall-daemon /var/lib/squall-daemon/config
 
 		userdel ${DELUGE_USER} > /dev/null 2>&1 || true
 		groupdel ${DELUGE_GROUP} > /dev/null 2>&1 || true

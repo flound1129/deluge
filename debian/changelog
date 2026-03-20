@@ -1,4 +1,4 @@
-deluge (2.2.1~dev0-1) unstable; urgency=medium
+squall (2.2.1~dev0-1) unstable; urgency=medium
 
   * Package from flound1129/deluge fork.
   * Switch build system to dh-virtualenv.

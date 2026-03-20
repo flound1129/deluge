@@ -1,0 +1,2 @@
+var/lib/squall-daemon/config
+var/log/squall-daemon

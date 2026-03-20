@@ -1,0 +1,5 @@
+# dh-virtualenv installs to /opt/venvs — these are expected
+squall-common: non-standard-dir-in-usr [opt/venvs/*]
+squall-common: embedded-library *
+squall-common: script-not-executable opt/venvs/deluge/bin/*
+squall-common: unstripped-binary-or-object *
