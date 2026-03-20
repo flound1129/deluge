@@ -168,7 +168,7 @@ class GtkUI:
         # Set process name again to fix gtk issue
         setproctitle(getproctitle())
 
-        # Attempt to register a magnet URI handler with gconf, but do not overwrite
+        # Attempt to register a magnet URI handler, but do not overwrite
         # if already set by another program.
         associate_magnet_links(False)
 

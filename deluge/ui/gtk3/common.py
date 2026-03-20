@@ -27,7 +27,7 @@ from gi.repository.Gtk import (
     SortType,
 )
 
-from deluge.common import get_pixmap, is_ip, osx_check, windows_check
+from deluge.common import get_pixmap, is_ip, windows_check
 
 log = logging.getLogger(__name__)
 
@@ -274,38 +274,6 @@ def associate_magnet_links(overwrite=False):
             )
             winreg.CloseKey(magnet_key)
 
-    # Don't try associate magnet on OSX see: #2420
-    elif not osx_check():
-        # gconf method is only available in a GNOME environment
-        try:
-            import gi
-
-            gi.require_version('GConf', '2.0')
-            from gi.repository import GConf
-        except ValueError:
-            log.debug(
-                'gconf not available, so will not attempt to register magnet URI handler'
-            )
-            return False
-        else:
-            key = '/desktop/gnome/url-handlers/magnet/command'
-            gconf_client = GConf.Client.get_default()
-            if (gconf_client.get(key) and overwrite) or not gconf_client.get(key):
-                # We are either going to overwrite the key, or do it if it hasn't been set yet
-                if gconf_client.set_string(key, 'deluge "%s"'):
-                    gconf_client.set_bool(
-                        '/desktop/gnome/url-handlers/magnet/needs_terminal', False
-                    )
-                    gconf_client.set_bool(
-                        '/desktop/gnome/url-handlers/magnet/enabled', True
-                    )
-                    log.info('Deluge registered as default magnet URI handler!')
-                    return True
-                else:
-                    log.error(
-                        'Unable to register Deluge as default magnet URI handler.'
-                    )
-                    return False
     return False
 
 
