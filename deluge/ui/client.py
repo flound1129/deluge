@@ -16,7 +16,6 @@ from twisted.internet.protocol import ClientFactory
 
 from deluge import error
 from deluge.common import VersionSplit, get_localhost_auth, get_version
-from deluge.decorators import deprecated
 from deluge.transfer import DelugeTransferProtocol
 
 RPC_RESPONSE = 1
@@ -646,16 +645,6 @@ class Client:
         self._daemon_proxy = None
         self.__started_standalone = False
 
-    @deprecated
-    def start_classic_mode(self):
-        """Deprecated: Use start_standalone"""
-        self.start_standalone()
-
-    @deprecated
-    def stop_classic_mode(self):
-        """Deprecated: Use stop_standalone"""
-        self.stop_standalone()
-
     def start_daemon(self, port, config):
         """Starts a daemon process.
 
@@ -667,10 +656,8 @@ class Client:
             bool: True is successfully started the daemon, False otherwise.
 
         """
-        # subprocess.popen does not work with unicode args (with non-ascii characters) on windows
-        config = config.encode(sys.getfilesystemencoding())
         try:
-            subprocess.Popen(['deluged', '--port=%s' % port, b'--config=%s' % config])
+            subprocess.Popen(['deluged', f'--port={port}', f'--config={config}'])
         except OSError as ex:
             from errno import ENOENT
 
@@ -713,11 +700,6 @@ class Client:
 
         """
         return self.__started_standalone
-
-    @deprecated
-    def is_classicmode(self):
-        """Deprecated: Use is_standalone"""
-        self.is_standalone()
 
     def connected(self):
         """

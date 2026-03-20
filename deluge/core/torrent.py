@@ -27,7 +27,6 @@ from deluge._libtorrent import lt
 from deluge.common import decode_bytes
 from deluge.configmanager import ConfigManager, get_config_dir
 from deluge.core.authmanager import AUTH_LEVEL_ADMIN
-from deluge.decorators import deprecated
 from deluge.event import (
     TorrentFolderRenamedEvent,
     TorrentStateChangedEvent,
@@ -387,11 +386,6 @@ class Torrent:
             value = int(m_down_speed * 1024)
         self.handle.set_download_limit(value)
 
-    @deprecated
-    def set_prioritize_first_last(self, prioritize):
-        """Deprecated: Use set_prioritize_first_last_pieces."""
-        self.set_prioritize_first_last_pieces(prioritize)
-
     def set_prioritize_first_last_pieces(self, prioritize):
         """Prioritize the first and last pieces in the torrent.
 
@@ -569,11 +563,6 @@ class Torrent:
         # Set the first/last priorities if needed.
         if self.options['prioritize_first_last_pieces']:
             self.set_prioritize_first_last_pieces(True)
-
-    @deprecated
-    def set_save_path(self, download_location):
-        """Deprecated: Use set_download_location."""
-        self.set_download_location(download_location)
 
     def set_download_location(self, download_location):
         """The location for downloading torrent data."""

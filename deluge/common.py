@@ -31,7 +31,6 @@ from typing import Literal, Optional
 from urllib.parse import unquote_plus, urljoin
 from urllib.request import pathname2url
 
-from deluge.decorators import deprecated
 from deluge.error import InvalidPathError
 
 try:
@@ -1105,18 +1104,6 @@ def decode_bytes(byte_str, encoding='utf8'):
         except UnicodeDecodeError:
             pass
     return ''
-
-
-@deprecated
-def decode_string(byte_str, encoding='utf8'):
-    """Deprecated: Use decode_bytes"""
-    return decode_bytes(byte_str, encoding)
-
-
-@deprecated
-def utf8_encoded(str_, encoding='utf8'):
-    """Deprecated: Use encode or decode_bytes if needed"""
-    return decode_bytes(str_, encoding).encode('utf8')
 
 
 def utf8_encode_structure(data):
