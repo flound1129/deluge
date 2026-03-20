@@ -196,7 +196,7 @@ class MainWindow(component.Component):
             self.load_window_state()
 
         if self.config['lock_tray'] and not self.visible():
-            dialog = PasswordDialog(_('Enter your password to show Deluge...'))
+            dialog = PasswordDialog(_('Enter your password to show Squall...'))
 
             def on_dialog_response(password):
                 if password is not None:
@@ -255,7 +255,7 @@ class MainWindow(component.Component):
                 stop_gtk_reactor()
 
         if self.config['lock_tray'] and not self.visible():
-            dialog = PasswordDialog(_('Enter your password to Quit Deluge...'))
+            dialog = PasswordDialog(_('Enter your password to Quit Squall...'))
 
             def on_dialog_response(password):
                 if password:
@@ -352,7 +352,7 @@ class MainWindow(component.Component):
         self.first_run = False
 
     def stop(self):
-        self.window.set_title('Deluge')
+        self.window.set_title('Squall')
 
     def update(self):
         # Update the window title
@@ -364,7 +364,7 @@ class MainWindow(component.Component):
                 status['payload_upload_rate'], precision=0, shortform=True
             )
             self.window.set_title(
-                _('D: {download_rate} U: {upload_rate} - Deluge').format(
+                _('D: {download_rate} U: {upload_rate} - Squall').format(
                     download_rate=download_rate, upload_rate=upload_rate
                 )
             )
@@ -378,7 +378,7 @@ class MainWindow(component.Component):
         if value:
             self.update()
         else:
-            self.window.set_title(_('Deluge'))
+            self.window.set_title(_('Squall'))
 
     def on_newversionavailable_event(self, new_version):
         if self.config['show_new_releases']:

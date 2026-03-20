@@ -21,17 +21,17 @@ Architecture: all
 Depends:
  deluge-gtk (= ${source:Version}),
  ${misc:Depends},
-Description: multi-interface BitTorrent client (metapackage)
- Deluge is a BitTorrent client written in Python. It uses a client-server
- model supporting multiple user-interfaces that can connect to a
- (headless) deluge-daemon running on a server:
+Description: lightweight, lean BitTorrent client (metapackage)
+ Squall is a lightweight, lean BitTorrent client written in Python. It uses
+ a client-server model supporting multiple user-interfaces that can connect
+ to a (headless) daemon running on a server:
  .
    * deluge-gtk: graphical UI using GTK
    * deluge-console: text UI using ncurses
    * deluge-web: web frontend
  .
  This package is a metapackage depending on the graphical UI and the
- daemon for running deluge on a single machine.
+ daemon for running Squall on a single machine.
 
 Package: deluge-common
 Architecture: all
@@ -39,10 +39,10 @@ Depends:
  python3-gi,
  python3-gi-cairo,
  ${misc:Depends},
-Description: multi-interface BitTorrent client (common)
- Deluge is a BitTorrent client written in Python. It uses a client-server
- model supporting multiple user-interfaces that can connect to a
- (headless) deluged running on a server.
+Description: lightweight, lean BitTorrent client (common)
+ Squall is a lightweight, lean BitTorrent client written in Python. It uses
+ a client-server model supporting multiple user-interfaces that can connect
+ to a (headless) deluged running on a server.
  .
  This package contains the shared virtualenv and files between the clients
  and the server.
@@ -53,10 +53,10 @@ Depends:
  deluge-common (= ${source:Version}),
  python3-libtorrent,
  ${misc:Depends},
-Description: multi-interface BitTorrent client (text UI)
- Deluge is a BitTorrent client written in Python. It uses a client-server
- model supporting multiple user-interfaces that can connect to a
- (headless) deluged running on a server.
+Description: lightweight, lean BitTorrent client (text UI)
+ Squall is a lightweight, lean BitTorrent client written in Python. It uses
+ a client-server model supporting multiple user-interfaces that can connect
+ to a (headless) deluged running on a server.
  .
  This package contains the text user-interface (ncurses).
 
@@ -71,10 +71,10 @@ Depends:
  python3-gi-cairo,
  xdg-utils,
  ${misc:Depends},
-Description: multi-interface BitTorrent client (graphical UI)
- Deluge is a BitTorrent client written in Python. It uses a client-server
- model supporting multiple user-interfaces that can connect to a
- (headless) deluged running on a server.
+Description: lightweight, lean BitTorrent client (graphical UI)
+ Squall is a lightweight, lean BitTorrent client written in Python. It uses
+ a client-server model supporting multiple user-interfaces that can connect
+ to a (headless) deluged running on a server.
  .
  This package contains the graphical user-interface (GTK).
 
@@ -86,10 +86,10 @@ Depends:
  deluge-common (= ${source:Version}),
  passwd,
  ${misc:Depends},
-Description: multi-interface BitTorrent client (web frontend)
- Deluge is a BitTorrent client written in Python. It uses a client-server
- model supporting multiple user-interfaces that can connect to a
- (headless) deluged running on a server.
+Description: lightweight, lean BitTorrent client (web frontend)
+ Squall is a lightweight, lean BitTorrent client written in Python. It uses
+ a client-server model supporting multiple user-interfaces that can connect
+ to a (headless) deluged running on a server.
  .
  This package contains the web frontend.
 
@@ -102,9 +102,9 @@ Depends:
  passwd,
  python3-libtorrent,
  ${misc:Depends},
-Description: multi-interface BitTorrent client (server)
- Deluge is a BitTorrent client written in Python. It uses a client-server
- model supporting multiple user-interfaces that can connect to a
- (headless) deluged running on a server.
+Description: lightweight, lean BitTorrent client (server)
+ Squall is a lightweight, lean BitTorrent client written in Python. It uses
+ a client-server model supporting multiple user-interfaces that can connect
+ to a (headless) deluged running on a server.
  .
  This package contains the server.

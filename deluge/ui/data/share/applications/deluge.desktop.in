@@ -1,8 +1,8 @@
 [Desktop Entry]
 Version=1.0
-_Name=Deluge
+_Name=Squall
 _GenericName=BitTorrent Client
-_X-GNOME-FullName=Deluge BitTorrent Client
+_X-GNOME-FullName=Squall BitTorrent Client
 _Comment=Download and share files over BitTorrent
 _Keywords=bittorrent;torrent;magnet;download;p2p;torrents;downloading;uploading;share;sharing;
 TryExec=deluge-gtk

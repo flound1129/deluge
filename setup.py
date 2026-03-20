@@ -542,7 +542,7 @@ extras_require = {
 setup(
     name='deluge',
     version=_version,
-    fullname='Deluge BitTorrent Client',
+    fullname='Squall',
     description='BitTorrent Client',
     author='Deluge Team',
     maintainer='Calum Lind',

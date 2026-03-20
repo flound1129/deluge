@@ -22,8 +22,8 @@ class AboutDialog:
         self.about = Gtk.AboutDialog()
         self.about.set_transient_for(component.get('MainWindow').window)
         self.about.set_position(Gtk.WindowPosition.CENTER)
-        self.about.set_name(_('Deluge'))
-        self.about.set_program_name(_('Deluge'))
+        self.about.set_name(_('Squall'))
+        self.about.set_program_name(_('Squall'))
         if windows_check():
 
             def url_hook(dialog, url):

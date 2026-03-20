@@ -94,7 +94,7 @@ class SystemTray(component.Component):
                 'deluge-panel',
                 AppIndicator3.IndicatorCategory.APPLICATION_STATUS,
             )
-            self.indicator.set_property('title', _('Deluge'))
+            self.indicator.set_property('title', _('Squall'))
 
             # Pass the menu to the Application Indicator
             self.indicator.set_menu(self.tray_menu)
@@ -181,7 +181,7 @@ class SystemTray(component.Component):
             except Exception as ex:
                 log.debug('Unable to hide system tray menu widgets: %s', ex)
 
-            self.tray.set_tooltip_text(_('Deluge') + '\n' + _('Not Connected...'))
+            self.tray.set_tooltip_text(_('Squall') + '\n' + _('Not Connected...'))
 
     def shutdown(self):
         if self.config['enable_system_tray']:
@@ -241,7 +241,7 @@ class SystemTray(component.Component):
             max_upload_speed = '{} {}'.format(max_upload_speed, _('K/s'))
 
         msg = '{}\n{}: {} ({})\n{}: {} ({})'.format(
-            _('Deluge'),
+            _('Squall'),
             _('Down'),
             self.download_rate,
             max_download_speed,
