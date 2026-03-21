@@ -46,7 +46,7 @@ _package_data = {}
 _exclude_package_data = {}
 _entry_points = {'console_scripts': [], 'gui_scripts': [], 'deluge.ui': []}
 _data_files = []
-_version = get_version(prefix='squall-', suffix='.dev0')
+_version = get_version()
 
 
 class CleanDocs(Command):

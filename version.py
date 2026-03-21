@@ -31,48 +31,19 @@
 #
 
 import os
-import subprocess
+import time
 
 __all__ = ('get_version',)
 
+BASE_VERSION = '0.1.0'
 VERSION_FILE = os.path.join(os.path.dirname(__file__), 'RELEASE-VERSION')
 
 
-def call_git_describe(prefix='', suffix=''):
-    cmd = 'git describe --tags --match %s[0-9]*' % prefix
-    try:
-        output = subprocess.check_output(cmd.split(), stderr=subprocess.PIPE)
-    except (OSError, subprocess.CalledProcessError):
-        return None
-    else:
-        version = output.decode('utf-8').strip().replace(prefix, '')
-        # A dash signifies git commit increments since parent tag.
-        if '-' in version:
-            segment = '.dev' if 'dev' in version else '.post'
-            version = segment.join(version.replace(suffix, '').split('-')[:2])
-        return version
+def get_version():
+    version = '%s.dev%d' % (BASE_VERSION, int(time.time()))
 
-
-def get_version(prefix='squall-', suffix='.dev0'):
-    try:
-        with open(VERSION_FILE) as f:
-            release_version = f.readline().strip()
-    except OSError:
-        release_version = None
-
-    version = call_git_describe(prefix, suffix)
-
-    if not version:
-        version = release_version
-    if not version:
-        raise ValueError(
-            'Cannot find the version number! If you are using a git clone, '
-            'please ensure you have tags fetched (e.g., git fetch --tags).'
-        )
-
-    if version != release_version:
-        with open(VERSION_FILE, 'w') as f:
-            f.write('%s\n' % version)
+    with open(VERSION_FILE, 'w') as f:
+        f.write('%s\n' % version)
 
     return version
 
