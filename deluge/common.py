@@ -33,10 +33,7 @@ from urllib.request import pathname2url
 
 from deluge.error import InvalidPathError
 
-try:
-    from importlib.metadata import distribution
-except ImportError:
-    from pkg_resources import get_distribution as distribution
+from importlib.metadata import distribution
 
 
 try:
@@ -97,7 +94,7 @@ def get_version():
     Returns:
         str: The version of Deluge.
     """
-    return distribution('Deluge').version
+    return distribution('deluge').version
 
 
 def get_default_config_dir(filename: Optional[str] = None) -> str:
@@ -300,9 +297,7 @@ def get_pixmap(fname):
 def resource_filename(module: str, path: str) -> str:
     """Get filesystem path for a non-python resource.
 
-    Abstracts getting module resource files. Originally created to
-    workaround pkg_resources.resource_filename limitations with
-    multiple Deluge packages installed.
+    Abstracts getting module resource files using importlib.resources.
     """
     path = Path(path)
 

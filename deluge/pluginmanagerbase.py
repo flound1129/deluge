@@ -9,11 +9,15 @@
 
 """PluginManagerBase"""
 
+import configparser
 import email
 import logging
+import os
 import os.path
+import sys
+import zipfile
+from importlib import import_module
 
-import pkg_resources
 from twisted.internet import defer
 from twisted.python.failure import Failure
 
@@ -44,6 +48,208 @@ triggered this warning, please report to it's author.
 If you're the developer, please take a look at the plugins hosted on deluge's
 git repository to have an idea of what needs to be changed.
 """
+
+
+class _PluginDistribution:
+    """Lightweight distribution object for plugin discovery.
+
+    Holds the metadata and entry points for a single plugin discovered
+    from an egg-info directory, egg zip/directory, or egg-link file.
+    """
+
+    __slots__ = ('project_name', 'version', 'location', '_metadata', '_entry_points')
+
+    def __init__(self, project_name, version, location, metadata, entry_points):
+        self.project_name = project_name
+        self.version = version
+        self.location = location
+        self._metadata = metadata
+        self._entry_points = entry_points
+
+    def get_metadata(self, name):
+        if name == 'PKG-INFO':
+            return self._metadata
+        raise FileNotFoundError(name)
+
+    def get_entry_map(self, group):
+        return self._entry_points.get(group, {})
+
+    def load_entry_point(self, group, name):
+        ep = self._entry_points.get(group, {}).get(name)
+        if ep is None:
+            raise KeyError(f'No entry point {name!r} in group {group!r}')
+        module_path, attr = ep.rsplit(':', 1)
+        mod = import_module(module_path)
+        return getattr(mod, attr)
+
+
+def _parse_entry_points_txt(text):
+    """Parse an entry_points.txt file into {group: {name: value}} dict."""
+    result = {}
+    cp = configparser.ConfigParser()
+    cp.read_string(text)
+    for section in cp.sections():
+        group = {}
+        for name, value in cp.items(section):
+            group[name] = value.strip()
+        result[section] = group
+    return result
+
+
+def _read_egg_info(egg_info_dir):
+    """Read a .egg-info directory and return a _PluginDistribution or None."""
+    pkg_info_path = os.path.join(egg_info_dir, 'PKG-INFO')
+    if not os.path.isfile(pkg_info_path):
+        return None
+
+    with open(pkg_info_path, encoding='utf-8') as f:
+        metadata_text = f.read()
+
+    msg = email.message_from_string(metadata_text)
+    project_name = msg.get('Name', '')
+    version = msg.get('Version', '')
+
+    entry_points = {}
+    ep_path = os.path.join(egg_info_dir, 'entry_points.txt')
+    if os.path.isfile(ep_path):
+        with open(ep_path, encoding='utf-8') as f:
+            entry_points = _parse_entry_points_txt(f.read())
+
+    location = os.path.dirname(egg_info_dir)
+    return _PluginDistribution(project_name, version, location, metadata_text, entry_points)
+
+
+def _read_egg_zip(egg_path):
+    """Read a .egg zip file and return a _PluginDistribution or None."""
+    if not zipfile.is_zipfile(egg_path):
+        return None
+
+    try:
+        with zipfile.ZipFile(egg_path, 'r') as zf:
+            try:
+                metadata_text = zf.read('EGG-INFO/PKG-INFO').decode('utf-8')
+            except KeyError:
+                return None
+
+            msg = email.message_from_string(metadata_text)
+            project_name = msg.get('Name', '')
+            version = msg.get('Version', '')
+
+            entry_points = {}
+            try:
+                ep_text = zf.read('EGG-INFO/entry_points.txt').decode('utf-8')
+                entry_points = _parse_entry_points_txt(ep_text)
+            except KeyError:
+                pass
+
+            return _PluginDistribution(
+                project_name, version, egg_path, metadata_text, entry_points
+            )
+    except (zipfile.BadZipFile, OSError):
+        return None
+
+
+def _read_egg_dir(egg_dir):
+    """Read an unpacked .egg directory (with EGG-INFO/) and return a _PluginDistribution or None."""
+    egg_info = os.path.join(egg_dir, 'EGG-INFO')
+    if not os.path.isdir(egg_info):
+        return None
+
+    pkg_info_path = os.path.join(egg_info, 'PKG-INFO')
+    if not os.path.isfile(pkg_info_path):
+        return None
+
+    with open(pkg_info_path, encoding='utf-8') as f:
+        metadata_text = f.read()
+
+    msg = email.message_from_string(metadata_text)
+    project_name = msg.get('Name', '')
+    version = msg.get('Version', '')
+
+    entry_points = {}
+    ep_path = os.path.join(egg_info, 'entry_points.txt')
+    if os.path.isfile(ep_path):
+        with open(ep_path, encoding='utf-8') as f:
+            entry_points = _parse_entry_points_txt(f.read())
+
+    return _PluginDistribution(project_name, version, egg_dir, metadata_text, entry_points)
+
+
+def _scan_plugin_dirs(dirs):
+    """Scan directories for plugin distributions.
+
+    Discovers plugins from:
+    - .egg-info directories (setuptools develop/egg_info installs)
+    - .egg zip files (bdist_egg)
+    - unpacked .egg directories (Ubuntu-style installs)
+    - .egg-link files (develop installs pointing to source directories)
+
+    Returns a dict mapping normalised plugin names to lists of _PluginDistribution.
+    """
+    found = {}
+
+    for scan_dir in dirs:
+        if not os.path.isdir(scan_dir):
+            continue
+
+        for entry in os.listdir(scan_dir):
+            full_path = os.path.join(scan_dir, entry)
+            dist = None
+
+            if entry.endswith('.egg-info') and os.path.isdir(full_path):
+                dist = _read_egg_info(full_path)
+
+            elif entry.endswith('.egg'):
+                if os.path.isfile(full_path):
+                    dist = _read_egg_zip(full_path)
+                elif os.path.isdir(full_path):
+                    dist = _read_egg_dir(full_path)
+
+            elif entry.endswith('.egg-link') and os.path.isfile(full_path):
+                with open(full_path, encoding='utf-8') as f:
+                    lines = f.read().splitlines()
+                if lines:
+                    source_dir = lines[0].strip()
+                    if os.path.isdir(source_dir):
+                        if source_dir not in sys.path:
+                            sys.path.insert(0, source_dir)
+                        # Look for .egg-info dirs inside the source directory
+                        for sub in os.listdir(source_dir):
+                            sub_path = os.path.join(source_dir, sub)
+                            if sub.endswith('.egg-info') and os.path.isdir(sub_path):
+                                dist = _read_egg_info(sub_path)
+                                if dist:
+                                    break
+
+            if dist and dist.project_name:
+                norm_name = dist.project_name.lower().replace('-', ' ').replace('_', ' ')
+                if norm_name not in found:
+                    found[norm_name] = []
+                found[norm_name].append(dist)
+
+    return found
+
+
+class _PluginEnvironment:
+    """Dict-like lookup of plugin distributions by name.
+
+    Keys are case-insensitive and dash/underscore/space normalised.
+    """
+
+    def __init__(self, distributions):
+        self._dists = distributions
+
+    def _normalise(self, name):
+        return name.lower().replace('-', ' ').replace('_', ' ')
+
+    def __getitem__(self, name):
+        return self._dists.get(self._normalise(name), [])
+
+    def __iter__(self):
+        return iter(self._dists)
+
+    def __contains__(self, name):
+        return self._normalise(name) in self._dists
 
 
 class PluginManagerBase:
@@ -126,18 +332,22 @@ class PluginManagerBase:
         """Scan plugin_dirs for available plugins."""
         str_dirs = [str(d) for d in self.plugin_dirs]
         for dirname in str_dirs:
-            pkg_resources.working_set.add_entry(dirname)
-        self.pkg_env = pkg_resources.Environment(str_dirs, platform=None, python=None)
+            if os.path.isdir(dirname) and dirname not in sys.path:
+                sys.path.insert(0, dirname)
+        self.pkg_env = _PluginEnvironment(_scan_plugin_dirs(str_dirs))
 
         self.available_plugins = []
         for name in self.pkg_env:
-            log.debug(
-                'Found plugin: %s %s at %s',
-                self.pkg_env[name][0].project_name,
-                self.pkg_env[name][0].version,
-                self.pkg_env[name][0].location,
-            )
-            self.available_plugins.append(self.pkg_env[name][0].project_name)
+            dists = self.pkg_env[name]
+            if dists:
+                dist = dists[0]
+                log.debug(
+                    'Found plugin: %s %s at %s',
+                    dist.project_name,
+                    dist.version,
+                    dist.location,
+                )
+                self.available_plugins.append(dist.project_name)
 
     def enable_plugin(self, plugin_name):
         """Enable a plugin.
@@ -159,9 +369,14 @@ class PluginManagerBase:
             return defer.succeed(True)
 
         plugin_name = plugin_name.replace(' ', '-')
-        egg = self.pkg_env[plugin_name][0]
-        # Activate is required by non-namespace plugins.
-        egg.activate()
+        dists = self.pkg_env[plugin_name]
+        if not dists:
+            log.warning('Cannot find distribution for plugin %s', plugin_name)
+            return defer.succeed(False)
+        egg = dists[0]
+        # Ensure the plugin location is importable
+        if egg.location not in sys.path:
+            sys.path.insert(0, egg.location)
         return_d = defer.succeed(True)
 
         for name in egg.get_entry_map(self.entry_name):

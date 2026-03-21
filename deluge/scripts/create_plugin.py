@@ -223,12 +223,11 @@ setup(
 
 COMMON = """
 import os.path
-
-from pkg_resources import resource_filename
+from importlib.resources import files
 
 
 def get_resource(filename):
-    return resource_filename(__package__, os.path.join('data', filename))
+    return str(files(__package__).joinpath('data', filename))
 """
 
 GTK3UI = """

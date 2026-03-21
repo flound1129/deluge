@@ -105,7 +105,7 @@ def test_scan_egg_link(tmp_path):
 
 @pytest.mark.skipif(
     sys.platform == 'win32',
-    reason='pkg_resources normalizes project_name to lowercase on Windows for directory eggs',
+    reason='project_name is normalised to lowercase on Windows for directory eggs',
 )
 def test_scan_unpacked_egg_dir(tmp_path):
     """An unpacked .egg directory (Ubuntu-style) with EGG-INFO/ must be discovered."""

@@ -524,7 +524,6 @@ install_requires = [
     'pyopenssl',
     'pyxdg',
     'mako',
-    'setuptools',
     "pywin32; sys_platform == 'win32'",
     "certifi; sys_platform == 'win32'",
     'zope.interface',

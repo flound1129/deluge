@@ -1,4 +1,4 @@
-setuptools < 82
+setuptools
 libtorrent
 twisted[tls]>=17.1
 rencode
@@ -6,7 +6,6 @@ pyopenssl
 pyxdg
 pillow
 mako
-setuptools
 chardet
 setproctitle
 pywin32; sys_platform == 'win32'
