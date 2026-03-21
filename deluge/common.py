@@ -89,10 +89,10 @@ PY2 = False
 
 
 def get_version():
-    """The program version from the egg metadata.
+    """The program version from the package metadata.
 
     Returns:
-        str: The version of Deluge.
+        str: The version of Squall.
     """
     return distribution('deluge').version
 

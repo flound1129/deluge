@@ -53,7 +53,7 @@ def call_git_describe(prefix='', suffix=''):
         return version
 
 
-def get_version(prefix='deluge-', suffix='.dev0'):
+def get_version(prefix='squall-', suffix='.dev0'):
     try:
         with open(VERSION_FILE) as f:
             release_version = f.readline().strip()
