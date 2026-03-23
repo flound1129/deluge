@@ -21,7 +21,8 @@ override_dh_virtualenv:
 		--install-suffix deluge \
 		--use-system-packages \
 		--package squall-common \
-		--extra-pip-arg '--no-build-isolation'
+		--extra-pip-arg '--no-build-isolation' \
+		--extra-pip-arg '-v'
 
 execute_before_dh_virtualenv:
 	echo "$(VERSION)" | sed 's/~/./' > RELEASE-VERSION
