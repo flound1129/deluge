@@ -42,8 +42,11 @@ VERSION_FILE = os.path.join(os.path.dirname(__file__), 'RELEASE-VERSION')
 def get_version():
     version = '%s.dev%d' % (BASE_VERSION, int(time.time()))
 
-    with open(VERSION_FILE, 'w') as f:
-        f.write('%s\n' % version)
+    try:
+        with open(VERSION_FILE, 'w') as f:
+            f.write('%s\n' % version)
+    except OSError:
+        pass
 
     return version
 
