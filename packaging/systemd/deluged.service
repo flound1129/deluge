@@ -1,15 +1,15 @@
 [Unit]
-Description=Deluge Bittorrent Client Daemon
+Description=Squall Bittorrent Client Daemon
 Documentation=man:deluged
 After=network-online.target
 
 [Service]
 Type=simple
-User=debian-deluged
-Group=debian-deluged
+User=debian-squall-daemon
+Group=debian-squall-daemon
 UMask=007
 
-EnvironmentFile=-/etc/default/deluged
+EnvironmentFile=-/etc/default/squall-daemon
 ExecStart=/usr/bin/deluged -d
 
 Restart=on-failure
@@ -21,7 +21,7 @@ NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
-ReadWritePaths=/var/log/deluged /var/lib/deluged
+ReadWritePaths=/var/log/squall-daemon /var/lib/squall-daemon
 
 [Install]
 WantedBy=multi-user.target

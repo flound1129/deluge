@@ -40,6 +40,16 @@ VERSION_FILE = os.path.join(os.path.dirname(__file__), 'RELEASE-VERSION')
 
 
 def get_version():
+    # If RELEASE-VERSION exists (written by debian/rules), use it.
+    try:
+        with open(VERSION_FILE) as f:
+            version = f.readline().strip()
+            if version:
+                return version
+    except OSError:
+        pass
+
+    # Otherwise generate a timestamp-based dev version.
     version = '%s.dev%d' % (BASE_VERSION, int(time.time()))
 
     try:

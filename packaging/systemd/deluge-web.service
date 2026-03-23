@@ -1,16 +1,16 @@
 [Unit]
-Description=Deluge Bittorrent Client Web Interface
+Description=Squall Bittorrent Client Web Interface
 Documentation=man:deluge-web
 After=deluged.service
 Wants=deluged.service
 
 [Service]
 Type=simple
-User=debian-deluge-web
-Group=debian-deluge-web
+User=debian-squall-web
+Group=debian-squall-web
 UMask=027
 
-EnvironmentFile=-/etc/default/deluge-web
+EnvironmentFile=-/etc/default/squall-web
 ExecStart=/usr/bin/deluge-web -d
 
 Restart=on-failure
@@ -19,7 +19,7 @@ NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
-ReadWritePaths=/var/log/deluge-web /var/lib/deluge-web
+ReadWritePaths=/var/log/squall-web /var/lib/squall-web
 
 [Install]
 WantedBy=multi-user.target

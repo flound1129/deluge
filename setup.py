@@ -12,8 +12,15 @@ import glob
 import os
 import platform
 import sys
-from setuptools.command.build import build as _build
-from setuptools.command.install_data import install_data as _install_data
+try:
+    from setuptools.command.build import build as _build
+except ModuleNotFoundError:
+    from distutils.command.build import build as _build
+
+try:
+    from setuptools.command.install_data import install_data as _install_data
+except ModuleNotFoundError:
+    from distutils.command.install_data import install_data as _install_data
 
 try:
     from setuptools.command.clean import clean as _clean
