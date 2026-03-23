@@ -118,7 +118,7 @@ jobs:
           PKG_VER=$(dpkg-parsechangelog -S Version)
           BASE_VER="${PKG_VER%-*}"
           VERSION=$(echo "${BASE_VER}+${EPOCH}" | sed 's/~/./' | sed 's/+/./')
-          echo "tag=debs-${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=squall-${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Publish to GitHub release
         env:
