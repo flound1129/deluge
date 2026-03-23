@@ -20,14 +20,14 @@ override_dh_virtualenv:
 	dh_virtualenv \
 		--install-suffix deluge \
 		--use-system-packages \
-		--package deluge-common
+		--package squall-common
 
 execute_before_dh_virtualenv:
 	echo "$(VERSION)" | sed 's/~/./' > RELEASE-VERSION
 
 execute_after_dh_virtualenv:
 	# Unpack plugin eggs
-	cd debian/deluge-common/opt/venvs/deluge/lib/python*/site-packages/deluge/plugins/; \
+	cd debian/squall-common/opt/venvs/deluge/lib/python*/site-packages/deluge/plugins/; \
 	for EGG in *.egg; \
 	do \
 		mkdir -p $${EGG%-py?.*}.egg; \
@@ -35,7 +35,7 @@ execute_after_dh_virtualenv:
 		rm -f $${EGG}; \
 	done
 	# Remove bytecode cache directories
-	find debian/deluge-common -type d -name '__pycache__' | xargs rm -rf
+	find debian/squall-common -type d -name '__pycache__' | xargs rm -rf
 
 override_dh_strip:
 	dh_strip --exclude=site-packages
