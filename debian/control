@@ -21,6 +21,8 @@ Architecture: all
 Depends:
  squall-gtk (= ${source:Version}),
  ${misc:Depends},
+Conflicts: deluge,
+Replaces: deluge,
 Description: lightweight, lean BitTorrent client (metapackage)
  Squall is a lightweight, lean BitTorrent client written in Python. It uses
  a client-server model supporting multiple user-interfaces that can connect
@@ -39,6 +41,8 @@ Depends:
  python3-gi,
  python3-gi-cairo,
  ${misc:Depends},
+Conflicts: deluge-common,
+Replaces: deluge-common,
 Description: lightweight, lean BitTorrent client (common)
  Squall is a lightweight, lean BitTorrent client written in Python. It uses
  a client-server model supporting multiple user-interfaces that can connect
@@ -53,6 +57,8 @@ Depends:
  squall-common (= ${source:Version}),
  python3-libtorrent,
  ${misc:Depends},
+Conflicts: deluge-console,
+Replaces: deluge-console,
 Description: lightweight, lean BitTorrent client (text UI)
  Squall is a lightweight, lean BitTorrent client written in Python. It uses
  a client-server model supporting multiple user-interfaces that can connect
@@ -71,6 +77,8 @@ Depends:
  python3-gi-cairo,
  xdg-utils,
  ${misc:Depends},
+Conflicts: deluge-gtk,
+Replaces: deluge-gtk,
 Description: lightweight, lean BitTorrent client (graphical UI)
  Squall is a lightweight, lean BitTorrent client written in Python. It uses
  a client-server model supporting multiple user-interfaces that can connect
@@ -86,6 +94,8 @@ Depends:
  squall-common (= ${source:Version}),
  passwd,
  ${misc:Depends},
+Conflicts: deluge-web,
+Replaces: deluge-web,
 Description: lightweight, lean BitTorrent client (web frontend)
  Squall is a lightweight, lean BitTorrent client written in Python. It uses
  a client-server model supporting multiple user-interfaces that can connect
@@ -102,6 +112,8 @@ Depends:
  passwd,
  python3-libtorrent,
  ${misc:Depends},
+Conflicts: deluged,
+Replaces: deluged,
 Description: lightweight, lean BitTorrent client (server)
  Squall is a lightweight, lean BitTorrent client written in Python. It uses
  a client-server model supporting multiple user-interfaces that can connect
