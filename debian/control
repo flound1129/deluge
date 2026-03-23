@@ -1,7 +1,7 @@
 Source: squall
 Section: net
 Priority: optional
-Maintainer: Maintainer <maintainer@example.com>
+Maintainer: Adam McKenna <adam@mysticflounder.ai>
 Build-Depends:
  debhelper-compat (= 13),
  dh-virtualenv (>= 1.2.2),

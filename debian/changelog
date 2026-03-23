@@ -1,9 +1,9 @@
-squall (2.2.1~dev0-1) unstable; urgency=medium
+squall (0.1.0-1) unstable; urgency=medium
 
-  * Package from flound1129/deluge fork.
+  * Initial Squall release — rebranded fork of Deluge.
   * Switch build system to dh-virtualenv.
   * Add SSL peers support.
   * Use PHC string format for stored password hashes.
   * Bump minimum Python to 3.10.
 
- -- Maintainer <maintainer@example.com>  Wed, 19 Mar 2026 00:00:00 +0000
+ -- Adam McKenna <adam@mysticflounder.ai>  Sat, 22 Mar 2026 00:00:00 +0000
