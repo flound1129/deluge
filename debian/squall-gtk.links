@@ -1,2 +1,2 @@
-opt/venvs/deluge/bin/deluge-gtk usr/bin/deluge-gtk
-opt/venvs/deluge/bin/deluge usr/bin/deluge
+opt/venvs/deluge/bin/squall-gtk usr/bin/squall-gtk
+opt/venvs/deluge/bin/squall usr/bin/squall

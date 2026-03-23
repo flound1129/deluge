@@ -10,7 +10,7 @@ Group=debian-squall-daemon
 UMask=007
 
 EnvironmentFile=-/etc/default/squall-daemon
-ExecStart=/usr/bin/deluged -d
+ExecStart=/usr/sbin/squalld -d
 
 Restart=on-failure
 

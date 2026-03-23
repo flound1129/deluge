@@ -474,24 +474,24 @@ if not windows_check() and not osx_check():
 
 # Entry Points
 _entry_points['console_scripts'] = [
-    'deluge-console = deluge.ui.console:start',
+    'squall-console = deluge.ui.console:start',
 ]
 
 # On Windows use gui_scripts to hide cmd popup (no effect on Linux/MacOS)
 _entry_points['gui_scripts'] = [
-    'deluge = deluge.ui.ui_entry:start_ui',
-    'deluge-gtk = deluge.ui.gtk3:start',
-    'deluge-web = deluge.ui.web:start',
-    'deluged = deluge.core.daemon_entry:start_daemon',
+    'squall = deluge.ui.ui_entry:start_ui',
+    'squall-gtk = deluge.ui.gtk3:start',
+    'squall-web = deluge.ui.web:start',
+    'squalld = deluge.core.daemon_entry:start_daemon',
 ]
 
 # Provide Windows 'debug' exes for stdin/stdout e.g. logging/errors
 if windows_check():
     _entry_points['console_scripts'].extend(
         [
-            'deluge-debug = deluge.ui.ui_entry:start_ui',
-            'deluge-web-debug = deluge.ui.web:start',
-            'deluged-debug = deluge.core.daemon_entry:start_daemon',
+            'squall-debug = deluge.ui.ui_entry:start_ui',
+            'squall-web-debug = deluge.ui.web:start',
+            'squalld-debug = deluge.core.daemon_entry:start_daemon',
         ]
     )
 

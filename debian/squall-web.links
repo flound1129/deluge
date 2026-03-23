@@ -1,1 +1,1 @@
-opt/venvs/deluge/bin/deluge-web usr/bin/deluge-web
+opt/venvs/deluge/bin/squall-web usr/bin/squall-web

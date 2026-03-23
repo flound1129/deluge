@@ -1,8 +1,8 @@
 [Unit]
 Description=Squall Bittorrent Client Web Interface
 Documentation=man:deluge-web
-After=deluged.service
-Wants=deluged.service
+After=squalld.service
+Wants=squalld.service
 
 [Service]
 Type=simple
@@ -11,7 +11,7 @@ Group=debian-squall-web
 UMask=027
 
 EnvironmentFile=-/etc/default/squall-web
-ExecStart=/usr/bin/deluge-web -d
+ExecStart=/usr/bin/squall-web -d
 
 Restart=on-failure
 
