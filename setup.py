@@ -13,8 +13,12 @@ import os
 import platform
 import sys
 from setuptools.command.build import build as _build
-from setuptools.command.clean import clean as _clean
 from setuptools.command.install_data import install_data as _install_data
+
+try:
+    from setuptools.command.clean import clean as _clean
+except ModuleNotFoundError:
+    from distutils.command.clean import clean as _clean
 from shutil import rmtree, which
 
 from setuptools import Command, find_packages, setup
