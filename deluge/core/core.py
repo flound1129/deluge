@@ -113,7 +113,7 @@ class Core(component.Component):
 
         # Start the libtorrent session.
         user_agent = f'Deluge/{SQUALL_VER} libtorrent/{LT_VERSION}'
-        peer_id = self._create_peer_id(SQUALL_VER)
+        peer_id = self._create_peer_id('2.1.1')
         log.debug('Starting session (peer_id: %s, user_agent: %s)', peer_id, user_agent)
         settings_pack = {
             'peer_fingerprint': peer_id,
