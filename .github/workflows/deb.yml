@@ -130,3 +130,12 @@ jobs:
             --prerelease \
             --notes "Automated deb build" 2>/dev/null || true
           gh release upload "$TAG" dist/*.deb --clobber
+
+      - name: Prune old releases (keep latest 3)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --json tagName --jq '.[].tagName' \
+            | grep '^squall-' \
+            | tail -n +4 \
+            | xargs -I{} gh release delete {} --yes --cleanup-tag
