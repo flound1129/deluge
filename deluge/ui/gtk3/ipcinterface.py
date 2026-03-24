@@ -127,7 +127,7 @@ class IPCInterface(component.Component):
                 else:
                     if restart_tempfile:
                         log.warning(
-                            'Found running PID but it is not a Deluge process, removing lockfile...'
+                            'Found running PID but it is not a Squall process, removing lockfile...'
                         )
                         delete_lockfile()
             try:
@@ -136,24 +136,24 @@ class IPCInterface(component.Component):
                 self.listener = reactor.listenUNIX(socket, self.factory, wantPID=True)
             except twisted.internet.error.CannotListenError as ex:
                 log.info(
-                    'Deluge is already running! Sending arguments to running instance...'
+                    'Squall is already running! Sending arguments to running instance...'
                 )
                 self.factory = IPCClientFactory()
                 self.factory.args = args
                 reactor.connectUNIX(socket, self.factory, checkPID=True)
                 reactor.run()
                 if self.factory.stop:
-                    log.info('Success sending arguments to running Deluge.')
+                    log.info('Success sending arguments to running Squall.')
                     from gi.repository.Gdk import notify_startup_complete
 
                     notify_startup_complete()
                     sys.exit(0)
                 else:
                     if restart_tempfile:
-                        log.error('Deluge restart failed: %s', ex)
+                        log.error('Squall restart failed: %s', ex)
                         sys.exit(1)
                     else:
-                        log.warning('Restarting Deluge... (%s)', ex)
+                        log.warning('Restarting Squall... (%s)', ex)
                         # Create a tempfile to keep track of restart
                         mkstemp(prefix='restart.', dir=ipc_dir)
                         os.execv(sys.argv[0], sys.argv)
@@ -170,7 +170,7 @@ class IPCInterface(component.Component):
 
 
 def process_args(args):
-    """Process arguments sent to already running Deluge"""
+    """Process arguments sent to already running Squall"""
     # Make sure args is a list
     args = list(args)
     log.debug('Processing args from other process: %s', args)

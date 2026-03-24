@@ -181,7 +181,7 @@ class HTTPDownloaderAgent:
             headers = Headers()
 
         if not headers.hasHeader(b'User-Agent'):
-            user_agent = 'Deluge'
+            user_agent = 'Squall'
             headers.addRawHeader('User-Agent', user_agent)
 
         d = self.agent.request(

@@ -12,14 +12,14 @@ import pytest
 import rencode
 
 import deluge.log
-from deluge.transfer import DelugeTransferProtocol
+from deluge.transfer import SquallTransferProtocol
 
 deluge.log.setup_logger('none')
 
 
-class TransferTestClass(DelugeTransferProtocol):
+class TransferTestClass(SquallTransferProtocol):
     def __init__(self):
-        DelugeTransferProtocol.__init__(self)
+        SquallTransferProtocol.__init__(self)
         self.transport = self
         self.messages_out = []
         self.messages_in = []
@@ -27,15 +27,15 @@ class TransferTestClass(DelugeTransferProtocol):
 
     def write(self, message):
         """
-        Called by DelugeTransferProtocol class
-        This simulates the write method of the self.transport in DelugeTransferProtocol.
+        Called by SquallTransferProtocol class
+        This simulates the write method of the self.transport in SquallTransferProtocol.
         """
         self.messages_out.append(message)
 
     def message_received(self, message):
         """
-        This method overrides message_received is DelugeTransferProtocol and is
-        called with the complete message as it was sent by DelugeRPCProtocol
+        This method overrides message_received is SquallTransferProtocol and is
+        called with the complete message as it was sent by SquallRPCProtocol
         """
         self.messages_in.append(message)
 
@@ -82,12 +82,12 @@ class TransferTestClass(DelugeTransferProtocol):
             self.message_received(request)
 
 
-class TestDelugeTransferProtocol:
+class TestSquallTransferProtocol:
     @pytest.fixture(autouse=True)
     def set_up(self):
         """
         The expected messages corresponds to the test messages (msg1, msg2) after they've been processed
-        by DelugeTransferProtocol.send, which means that they've first been encoded with rencode,
+        by SquallTransferProtocol.send, which means that they've first been encoded with rencode,
         and then compressed with zlib.
         The expected messages are encoded in base64 to easily including it here in the source.
         So before comparing the results with the expected messages, the expected messages must be decoded,
@@ -127,7 +127,7 @@ class TestDelugeTransferProtocol:
 
         """
         self.transfer.transfer_message(self.msg1)
-        # Get the data as sent by DelugeTransferProtocol
+        # Get the data as sent by SquallTransferProtocol
         messages = self.transfer.get_messages_out_joined()
         base64_encoded = base64.b64encode(messages)
         assert base64_encoded == self.msg1_expected_compressed_base64
@@ -141,7 +141,7 @@ class TestDelugeTransferProtocol:
         self.transfer.dataReceived(
             base64.b64decode(self.msg1_expected_compressed_base64)
         )
-        # Get the data as sent by DelugeTransferProtocol
+        # Get the data as sent by SquallTransferProtocol
         messages = self.transfer.get_messages_in().pop(0)
         assert rencode.dumps(self.msg1) == rencode.dumps(messages)
 
@@ -158,7 +158,7 @@ class TestDelugeTransferProtocol:
     def test_receive_two_concatenated_messages(self):
         """
         This test simply concatenates two messsages (as they're sent over the network),
-        and lets DelugeTransferProtocol receive the data as one string.
+        and lets SquallTransferProtocol receive the data as one string.
 
         """
         two_concatenated = base64.b64decode(
@@ -166,7 +166,7 @@ class TestDelugeTransferProtocol:
         ) + base64.b64decode(self.msg2_expected_compressed_base64)
         self.transfer.dataReceived(two_concatenated)
 
-        # Get the data as sent by DelugeTransferProtocol
+        # Get the data as sent by SquallTransferProtocol
         message1 = self.transfer.get_messages_in().pop(0)
         assert rencode.dumps(self.msg1) == rencode.dumps(message1)
         message2 = self.transfer.get_messages_in().pop(0)
@@ -175,7 +175,7 @@ class TestDelugeTransferProtocol:
     def test_receive_three_messages_in_parts(self):
         """
         This test concatenates three messsages (as they're sent over the network),
-        and lets DelugeTransferProtocol receive the data in multiple parts.
+        and lets SquallTransferProtocol receive the data in multiple parts.
 
         """
         msg_bytes = (
@@ -209,7 +209,7 @@ class TestDelugeTransferProtocol:
             # Verify that the expected number of complete messages has arrived
             assert expected_msgs_received_count == len(self.transfer.get_messages_in())
 
-        # Get the data as received by DelugeTransferProtocol
+        # Get the data as received by SquallTransferProtocol
         message1 = self.transfer.get_messages_in().pop(0)
         assert rencode.dumps(self.msg1) == rencode.dumps(message1)
         message2 = self.transfer.get_messages_in().pop(0)
@@ -220,11 +220,11 @@ class TestDelugeTransferProtocol:
     def test_receive_middle_of_header(self):
         """
         This test concatenates two messsages (as they're sent over the network),
-        and lets DelugeTransferProtocol receive the data in two parts.
+        and lets SquallTransferProtocol receive the data in two parts.
         The first part contains the first message, plus two bytes of the next message.
         The next part contains the rest of the message.
 
-        This is a special case, as DelugeTransferProtocol can't start parsing
+        This is a special case, as SquallTransferProtocol can't start parsing
         a message until it has at least 5 bytes (the size of the header) to be able
         to read and parse the size of the payload.
 
@@ -246,7 +246,7 @@ class TestDelugeTransferProtocol:
         # Should be 2 messages in the list
         assert 2 == len(self.transfer.get_messages_in())
 
-        # Get the data as sent by DelugeTransferProtocol
+        # Get the data as sent by SquallTransferProtocol
         message1 = self.transfer.get_messages_in().pop(0)
         assert rencode.dumps(self.msg1) == rencode.dumps(message1)
         message2 = self.transfer.get_messages_in().pop(0)

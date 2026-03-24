@@ -21,9 +21,9 @@ MESSAGE_HEADER_FORMAT = '!BI'
 MESSAGE_HEADER_SIZE = struct.calcsize(MESSAGE_HEADER_FORMAT)
 
 
-class DelugeTransferProtocol(Protocol):
+class SquallTransferProtocol(Protocol):
     """
-    Deluge RPC wire protocol.
+    Squall RPC wire protocol.
 
     Data messages are transferred with a header containing a protocol version
     and the length of the data to be transferred (payload).
@@ -110,7 +110,7 @@ class DelugeTransferProtocol(Protocol):
         except Exception as ex:
             log.warning('Error occurred when parsing message header: %s.', ex)
             log.warning(
-                'This version of Deluge cannot communicate with the sender of this data.'
+                'This version of Squall cannot communicate with the sender of this data.'
             )
             self._message_length = 0
             self._buffer = b''

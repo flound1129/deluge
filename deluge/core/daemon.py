@@ -6,7 +6,7 @@
 # See LICENSE for more details.
 #
 
-"""The Deluge daemon"""
+"""The Squall daemon"""
 
 import logging
 import os
@@ -47,21 +47,21 @@ def is_daemon_running(pid_file):
         return False
 
     if is_process_running(pid):
-        # Ensure it's a deluged process by trying to open a socket to it's port.
+        # Ensure it's a squalld process by trying to open a socket to it's port.
         _socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             _socket.connect(('127.0.0.1', port))
         except OSError:
-            # Can't connect, so pid is not a deluged process.
+            # Can't connect, so pid is not a squalld process.
             return False
         else:
-            # This is a deluged process!
+            # This is a squalld process!
             _socket.close()
             return True
 
 
 class Daemon:
-    """The Deluge Daemon class"""
+    """The Squall Daemon class"""
 
     def __init__(
         self,
@@ -89,10 +89,10 @@ class Daemon:
         """
         self.standalone = standalone
         self.pid_file = get_config_dir('deluged.pid')
-        log.info('Deluge daemon %s', get_version())
+        log.info('Squall daemon %s', get_version())
         if is_daemon_running(self.pid_file):
             raise DaemonRunningError(
-                'Deluge daemon already running with this config directory!'
+                'Squall daemon already running with this config directory!'
             )
 
         # Twisted catches signals to terminate, so just have it call the shutdown method.
@@ -149,7 +149,7 @@ class Daemon:
         component.start('PreferencesManager')
 
         if not self.standalone:
-            log.info('Deluge daemon starting...')
+            log.info('Squall daemon starting...')
             # Create pid file to track if deluged is running, also includes the port number.
             pid = os.getpid()
             log.debug('Storing pid %s & port %s in: %s', pid, self.port, self.pid_file)
@@ -163,15 +163,15 @@ class Daemon:
             finally:
                 log.debug('Remove pid file: %s', self.pid_file)
                 os.remove(self.pid_file)
-                log.info('Deluge daemon shutdown successfully')
+                log.info('Squall daemon shutdown successfully')
 
     @export()
     def shutdown(self, *args, **kwargs):
-        log.debug('Deluge daemon shutdown requested...')
+        log.debug('Squall daemon shutdown requested...')
         reactor.callLater(0, reactor.stop)
 
     def _shutdown(self, *args, **kwargs):
-        log.info('Deluge daemon shutting down, waiting for components to shutdown...')
+        log.info('Squall daemon shutting down, waiting for components to shutdown...')
         if not self.standalone:
             return component.shutdown()
 

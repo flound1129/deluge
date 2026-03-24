@@ -26,7 +26,7 @@ class StatusBars(component.Component):
         self.external_ip = ''
 
         # Default values
-        self.topbar = '{!status!}Deluge %s Console - ' % deluge.common.get_version()
+        self.topbar = '{!status!}Squall %s Console - ' % deluge.common.get_version()
         self.bottombar = '{!status!}C: %s' % self.connections
 
     def start(self):
@@ -59,7 +59,7 @@ class StatusBars(component.Component):
 
     def update_statusbars(self):
         # Update the topbar string
-        self.topbar = '{!status!}Deluge %s Console - ' % deluge.common.get_version()
+        self.topbar = '{!status!}Squall %s Console - ' % deluge.common.get_version()
 
         if client.connected():
             info = client.connection_info()

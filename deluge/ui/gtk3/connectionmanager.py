@@ -270,7 +270,7 @@ class ConnectionManager(component.Component):
         else:
             ErrorDialog(
                 _('Unable to start daemon!'),
-                _('Check deluged package is installed and logs for further details'),
+                _('Check squalld package is installed and logs for further details'),
             ).run()
             return False
 

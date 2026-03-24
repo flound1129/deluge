@@ -16,7 +16,7 @@ from twisted.internet.protocol import ClientFactory
 
 from deluge import error
 from deluge.common import VersionSplit, get_localhost_auth, get_version
-from deluge.transfer import DelugeTransferProtocol
+from deluge.transfer import SquallTransferProtocol
 
 RPC_RESPONSE = 1
 RPC_ERROR = 2
@@ -76,7 +76,7 @@ class DelugeRPCRequest:
         return (self.request_id, self.method, self.args, self.kwargs)
 
 
-class DelugeRPCProtocol(DelugeTransferProtocol):
+class SquallRPCProtocol(SquallTransferProtocol):
     def connectionMade(self):  # NOQA: N802
         self.__rpc_requests = {}
         # Set the protocol in the daemon so it can send data
@@ -197,8 +197,8 @@ class DelugeRPCProtocol(DelugeTransferProtocol):
             log.warning('Error occurred when sending message: %s', ex)
 
 
-class DelugeRPCClientFactory(ClientFactory):
-    protocol = DelugeRPCProtocol
+class SquallRPCClientFactory(ClientFactory):
+    protocol = SquallRPCProtocol
 
     def __init__(self, daemon, event_handlers):
         self.daemon = daemon
@@ -248,7 +248,7 @@ class DaemonSSLProxy(DaemonProxy):
     def __init__(self, event_handlers=None):
         if event_handlers is None:
             event_handlers = {}
-        self.__factory = DelugeRPCClientFactory(self, event_handlers)
+        self.__factory = SquallRPCClientFactory(self, event_handlers)
         self.__factory.noisy = False
         self.__request_counter = 0
         self.__deferred = {}
@@ -664,8 +664,8 @@ class Client:
             if ex.errno == ENOENT:
                 log.error(
                     _(
-                        'Deluge cannot find the `deluged` executable, check that '
-                        'the deluged package is installed, or added to your PATH.'
+                        'Squall cannot find the `squalld` executable, check that '
+                        'the squalld package is installed, or added to your PATH.'
                     )
                 )
             else:

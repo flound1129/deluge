@@ -310,8 +310,8 @@ class GtkUI:
             client.start_standalone()
         except DaemonRunningError:
             err_msg = _(
-                'A Deluge daemon (deluged) is already running.\n'
-                'To use Standalone mode, stop local daemon and restart Deluge.'
+                'A Squall daemon (squalld) is already running.\n'
+                'To use Standalone mode, stop local daemon and restart Squall.'
             )
         except LibtorrentImportError as ex:
             if 'libtorrent library not found' in str(ex):

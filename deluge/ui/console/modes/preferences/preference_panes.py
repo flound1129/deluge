@@ -499,7 +499,7 @@ class OtherPane(BasePreferencePane):
     @overrides(BasePreferencePane)
     def create_pane(self, core_conf, console_config):
         self.add_header(_('System Information'))
-        self.add_info_field('info1', ' Help us improve Deluge by sending us your', '')
+        self.add_info_field('info1', ' Help us improve Squall by sending us your', '')
         self.add_info_field(
             'info2', ' Python version, PyGTK version, OS and processor', ''
         )

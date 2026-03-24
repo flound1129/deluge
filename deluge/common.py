@@ -6,7 +6,7 @@
 # See LICENSE for more details.
 #
 
-"""Common functions for various parts of Deluge to use."""
+"""Common functions for various parts of Squall to use."""
 
 import base64
 import binascii

@@ -119,14 +119,14 @@ def start_daemon(skip_start=False):
                 daemon.start()
         except CannotListenError as ex:
             log.error(
-                'Cannot start deluged, listen port in use.\n'
+                'Cannot start squalld, listen port in use.\n'
                 ' Check for other running daemons or services using this port: %s:%s',
                 ex.interface,
                 ex.port,
             )
             sys.exit(1)
         except Exception as ex:
-            log.error('Unable to start deluged: %s', ex)
+            log.error('Unable to start squalld: %s', ex)
             if log.isEnabledFor(DEBUG):
                 log.exception(ex)
             sys.exit(1)

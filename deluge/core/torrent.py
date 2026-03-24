@@ -141,7 +141,7 @@ class TorrentOptions(dict):
         remove_at_ratio (bool): Remove the torrent when it has reached the stop_ratio.
         seed_mode (bool): Assume that all files are present for this torrent (Only used when adding a torent).
         sequential_download (bool): Download the pieces of the torrent in order.
-        shared (bool): Enable the torrent to be seen by other Deluge users.
+        shared (bool): Enable the torrent to be seen by other Squall users.
         stop_at_ratio (bool): Stop the torrent when it has reached stop_ratio.
         stop_ratio (float): The seeding ratio to stop (or remove) the torrent at.
         super_seeding (bool): Enable super seeding/initial seeding.
@@ -739,7 +739,7 @@ class Torrent:
             return
 
         if self.forced_error.restart_to_resume:
-            log.error('Restart deluge to clear this torrent error')
+            log.error('Restart Squall to clear this torrent error')
 
         if not self.forced_error.was_paused and self.options['auto_managed']:
             self._set_handle_flags(
@@ -1394,7 +1394,7 @@ class Torrent:
         if log.isEnabledFor(logging.DEBUG):
             log.debug('Requesting save_resume_data for torrent: %s', self.torrent_id)
         flags = lt.save_resume_flags_t.flush_disk_cache if flush_disk_cache else 0
-        # Don't generate fastresume data if torrent is in a Deluge Error state.
+        # Don't generate fastresume data if torrent is in a Squall Error state.
         if self.forced_error:
             component.get('TorrentManager').waiting_on_resume_data[
                 self.torrent_id

@@ -34,7 +34,7 @@ log = logging.getLogger(__name__)
 
 # Big help string that gets displayed when the user hits 'h'
 HELP_STR = """
-This screen shows an overview of the current torrents Deluge is managing. \
+This screen shows an overview of the current torrents Squall is managing. \
 The currently selected torrent is indicated with a white background. \
 You can change the selected torrent using the up/down arrows or the \
 PgUp/PgDown keys. Home and End keys go to the first and last torrent \
@@ -158,7 +158,7 @@ class TorrentList(BaseMode, PopupsHandler):
 
         if self.config['first_run']:
             self.push_popup(
-                MessagePopup(self, 'Welcome to Deluge', HELP_STR, width_req=0.65)
+                MessagePopup(self, 'Welcome to Squall', HELP_STR, width_req=0.65)
             )
             self.config['first_run'] = False
             self.config.save()

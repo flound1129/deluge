@@ -102,7 +102,7 @@ icon_checking = get_pixbuf('checking16.png')
 
 
 def get_logo(size):
-    """A Deluge logo.
+    """A Squall logo.
 
     Params:
         size (int): Size of logo in pixels

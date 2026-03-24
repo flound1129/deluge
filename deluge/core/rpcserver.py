@@ -36,7 +36,7 @@ from deluge.error import (
     _ClientSideRecreateError,
 )
 from deluge.event import ClientDisconnectedEvent
-from deluge.transfer import DelugeTransferProtocol
+from deluge.transfer import SquallTransferProtocol
 
 RPC_RESPONSE = 1
 RPC_ERROR = 2
@@ -120,7 +120,7 @@ def format_request(call):
         return s
 
 
-class DelugeRPCProtocol(DelugeTransferProtocol):
+class SquallRPCProtocol(SquallTransferProtocol):
     def __init__(self):
         super().__init__()
         # namedtuple subclass with auth_level, username for the connected session.
@@ -176,7 +176,7 @@ class DelugeRPCProtocol(DelugeTransferProtocol):
         This method is called when a new client connects.
         """
         peer = self.transport.getPeer()
-        log.info('Deluge Client connection made from: %s:%s', peer.host, peer.port)
+        log.info('Squall Client connection made from: %s:%s', peer.host, peer.port)
         # Set the initial auth level of this session to AUTH_LEVEL_NONE
         self.factory.authorized_sessions[self.transport.sessionno] = self.AuthLevel(
             AUTH_LEVEL_NONE, ''
@@ -202,7 +202,7 @@ class DelugeRPCProtocol(DelugeTransferProtocol):
             component.get('EventManager').emit(
                 ClientDisconnectedEvent(self.factory.session_id)
             )
-        log.info('Deluge client disconnected: %s', reason.value)
+        log.info('Squall client disconnected: %s', reason.value)
 
     def valid_session(self):
         return self.transport.sessionno in self.factory.authorized_sessions
@@ -285,7 +285,7 @@ class DelugeRPCProtocol(DelugeTransferProtocol):
                 if isinstance(ex, BadLoginError):
                     peer = self.transport.getPeer()
                     log.error(
-                        'Deluge client authentication error made from: %s:%s (%s)',
+                        'Squall client authentication error made from: %s:%s (%s)',
                         peer.host,
                         peer.port,
                         str(ex),
@@ -390,7 +390,7 @@ class RPCServer(component.Component):
         component.Component.__init__(self, 'RPCServer')
 
         self.factory = Factory()
-        self.factory.protocol = DelugeRPCProtocol
+        self.factory.protocol = SquallRPCProtocol
         self.factory.session_id = -1
         self.factory.state = 'running'
 
@@ -415,7 +415,7 @@ class RPCServer(component.Component):
         if interface:
             hostname = interface
 
-        log.info('Starting DelugeRPC server %s:%s', hostname, port)
+        log.info('Starting SquallRPC server %s:%s', hostname, port)
 
         # Check for SSL keys and generate some if needed
         check_ssl_keys()

@@ -57,7 +57,7 @@ class IncompatibleClient(_ClientSideRecreateError):
     def __init__(self, daemon_version):
         self.daemon_version = daemon_version
         msg = (
-            'Your deluge client is not compatible with the daemon. '
+            'Your Squall client is not compatible with the daemon. '
             'Please upgrade your client to %(daemon_version)s'
         ) % {'daemon_version': self.daemon_version}
         super().__init__(message=msg)

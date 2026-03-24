@@ -10,7 +10,7 @@
 # The main starting point for the program. This function is called when the
 # user runs the command 'deluge'.
 
-"""Main starting point for Deluge"""
+"""Main starting point for Squall"""
 
 import argparse
 import logging
@@ -68,7 +68,7 @@ def start_ui():
 
     config = deluge.configmanager.ConfigManager('ui.conf', DEFAULT_PREFS)
     log = logging.getLogger(__name__)
-    log.info('Deluge ui %s', deluge.common.get_version())
+    log.info('Squall ui %s', deluge.common.get_version())
 
     if options.default_ui:
         config['default_ui'] = options.default_ui

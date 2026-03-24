@@ -423,7 +423,7 @@ class TorrentView(ListView, component.Component):
             _('Shared'),
             status_field=['shared'],
             default=False,
-            tooltip=_('Torrent is shared between other Deluge users or not.'),
+            tooltip=_('Torrent is shared between other Squall users or not.'),
         )
         self.restore_columns_order_from_state()
 

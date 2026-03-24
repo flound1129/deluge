@@ -12,13 +12,13 @@ from deluge.common import get_localhost_auth
 from deluge.conftest import BaseTestCase
 from deluge.core import rpcserver
 from deluge.core.authmanager import AuthManager
-from deluge.core.rpcserver import DelugeRPCProtocol, RPCServer
+from deluge.core.rpcserver import SquallRPCProtocol, RPCServer
 from deluge.log import setup_logger
 
 setup_logger('none')
 
 
-class DelugeRPCProtocolTester(DelugeRPCProtocol):
+class SquallRPCProtocolTester(SquallRPCProtocol):
     messages = []
 
     def transfer_message(self, data):
@@ -28,7 +28,7 @@ class DelugeRPCProtocolTester(DelugeRPCProtocol):
 class TestRPCServer(BaseTestCase):
     def set_up(self):
         self.rpcserver = RPCServer(listen=False)
-        self.rpcserver.factory.protocol = DelugeRPCProtocolTester
+        self.rpcserver.factory.protocol = SquallRPCProtocolTester
         self.factory = self.rpcserver.factory
         self.session_id = '0'
         self.request_id = 11

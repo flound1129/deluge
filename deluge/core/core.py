@@ -102,7 +102,7 @@ SESSION_RATES_MAPPING = {
     'upload_rate': 'net.sent_bytes',
 }
 
-DELUGE_VER = deluge.common.get_version()
+SQUALL_VER = deluge.common.get_version()
 
 
 class Core(component.Component):
@@ -112,8 +112,8 @@ class Core(component.Component):
         component.Component.__init__(self, 'Core')
 
         # Start the libtorrent session.
-        user_agent = f'Deluge/{DELUGE_VER} libtorrent/{LT_VERSION}'
-        peer_id = self._create_peer_id(DELUGE_VER)
+        user_agent = f'Deluge/{SQUALL_VER} libtorrent/{LT_VERSION}'
+        peer_id = self._create_peer_id(SQUALL_VER)
         log.debug('Starting session (peer_id: %s, user_agent: %s)', peer_id, user_agent)
         settings_pack = {
             'peer_fingerprint': peer_id,
@@ -437,7 +437,7 @@ class Core(component.Component):
     async def prefetch_magnet_metadata(
         self, magnet: str, timeout: int = 30
     ) -> Tuple[str, bytes]:
-        """Download magnet metadata without adding to Deluge session.
+        """Download magnet metadata without adding to Squall session.
 
         Used by UIs to get magnet files for selection before adding to session.
 
@@ -515,7 +515,7 @@ class Core(component.Component):
     async def add_torrent_url(
         self, url: str, options: dict, headers: dict = None
     ) -> 'defer.Deferred[Optional[str]]':
-        """Adds a torrent from a URL. Deluge will attempt to fetch the torrent
+        """Adds a torrent from a URL. Squall will attempt to fetch the torrent
         from the URL prior to adding it to the session.
 
         Args:

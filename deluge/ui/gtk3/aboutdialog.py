@@ -36,7 +36,7 @@ class AboutDialog:
         version = get_version()
 
         self.about.set_copyright(
-            _('Copyright %(year_start)s-%(year_end)s Deluge Team')
+            _('Copyright %(year_start)s-%(year_end)s Squall')
             % {'year_start': 2007, 'year_end': date.today().year}
         )
         self.about.set_comments(

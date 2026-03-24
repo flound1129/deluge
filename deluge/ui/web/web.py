@@ -21,7 +21,7 @@ class Web(UI):
 
     def __init__(self, *args, **kwargs):
         super().__init__(
-            'web', *args, description='Starts the Deluge Web interface', **kwargs
+            'web', *args, description='Starts the Squall Web interface', **kwargs
         )
         self.__server = None
 
@@ -75,7 +75,7 @@ class Web(UI):
                 self.server.start()
             except CannotListenError as ex:
                 log.error(
-                    '%s \nCheck that deluge-web or webui plugin is not already running.',
+                    '%s \nCheck that squall-web or webui plugin is not already running.',
                     ex,
                 )
             except Exception as ex:

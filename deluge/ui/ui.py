@@ -65,6 +65,6 @@ class UI:
 
         setproctitle('deluge-%s' % self.__name)
 
-        log.info('Deluge ui %s', deluge.common.get_version())
+        log.info('Squall ui %s', deluge.common.get_version())
         log.debug('options: %s', self.__options)
         log.info('Starting %s ui..', self.__name)

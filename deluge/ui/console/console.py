@@ -78,7 +78,7 @@ class Console(UI):
             '--daemon',
             metavar='<ip_addr>',
             dest='daemon_addr',
-            help=_('Deluge daemon IP address to connect to (default 127.0.0.1)'),
+            help=_('Squall daemon IP address to connect to (default 127.0.0.1)'),
             default='127.0.0.1',
         )
         group.add_argument(
@@ -87,7 +87,7 @@ class Console(UI):
             metavar='<port>',
             dest='daemon_port',
             type=int,
-            help=_('Deluge daemon port to connect to (default 58846)'),
+            help=_('Squall daemon port to connect to (default 58846)'),
             default='58846',
         )
         group.add_argument(
@@ -95,14 +95,14 @@ class Console(UI):
             '--username',
             metavar='<user>',
             dest='daemon_user',
-            help=_('Deluge daemon username to use when connecting'),
+            help=_('Squall daemon username to use when connecting'),
         )
         group.add_argument(
             '-P',
             '--password',
             metavar='<pass>',
             dest='daemon_pass',
-            help=_('Deluge daemon password to use when connecting'),
+            help=_('Squall daemon password to use when connecting'),
         )
         # To properly print help message for the console commands ( e.g. deluge-console info -h),
         # we add a subparser for each command which will trigger the help/usage when given
@@ -114,7 +114,7 @@ class Console(UI):
             parents=[self.parser],
             add_help=False,
             prog=self.parser.prog,
-            description='Starts the Deluge console interface',
+            description='Starts the Squall console interface',
             formatter_class=lambda prog: DelugeTextHelpFormatter(
                 prog, max_help_position=33, width=90
             ),

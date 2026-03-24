@@ -140,12 +140,12 @@ class ConsoleUI(component.Component, TermResizeHandler):
 
         if deluge.common.windows_check():
             print(
-                """\nDeluge-console does not run in interactive mode on Windows. \n
+                """\nSquall-console does not run in interactive mode on Windows. \n
 Please use commands from the command line, e.g.:\n
-deluge-console.exe help
-deluge-console.exe info
-deluge-console.exe "add --help"
-deluge-console.exe "add -p c:\\mytorrents c:\\new.torrent"
+squall-console.exe help
+squall-console.exe info
+squall-console.exe "add --help"
+squall-console.exe "add -p c:\\mytorrents c:\\new.torrent"
 """
             )
             return
@@ -247,7 +247,7 @@ deluge-console.exe "add -p c:\\mytorrents c:\\new.torrent"
         self.eventlog = EventLog()
 
         self.active_mode.topbar = (
-            '{!status!}Deluge ' + deluge.common.get_version() + ' Console'
+            '{!status!}Squall ' + deluge.common.get_version() + ' Console'
         )
         self.active_mode.bottombar = '{!status!}'
         self.active_mode.refresh()
