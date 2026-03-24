@@ -1,6 +1,6 @@
 [Unit]
 Description=Squall Bittorrent Client Daemon
-Documentation=man:deluged
+Documentation=man:squalld
 After=network-online.target
 
 [Service]
