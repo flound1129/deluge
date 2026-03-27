@@ -483,7 +483,7 @@ class TorrentManager(component.Component):
         # downloading them before set_file_priorities() is called post-add.
         # Only set for torrents with metadata; magnets get priorities via on_metadata_received().
         if options['file_priorities'] and torrent_info:
-            add_torrent_params['file_priorities'] = options['file_priorities']
+            add_torrent_params['file_priorities'] = list(options['file_priorities'])
         if resume_data:
             add_torrent_params['resume_data'] = resume_data
 

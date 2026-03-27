@@ -524,7 +524,7 @@ class Torrent:
             )
 
         if file_priorities and len(file_priorities) == len(self.get_files()):
-            self.handle.prioritize_files(file_priorities)
+            self.handle.prioritize_files(list(file_priorities))
         else:
             log.debug('Unable to set new file priorities.')
             file_priorities = self.handle.get_file_priorities()
