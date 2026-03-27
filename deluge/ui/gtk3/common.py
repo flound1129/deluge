@@ -226,7 +226,7 @@ def get_deluge_icon():
     else:
         try:
             icon_theme = IconTheme.get_default()
-            return icon_theme.load_icon('deluge', 64, 0)
+            return icon_theme.load_icon('squall', 64, 0)
         except GError:
             return get_logo(64)
 

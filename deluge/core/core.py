@@ -372,30 +372,10 @@ class Core(component.Component):
             self._session_prev_bytes[rate_key] = new_bytes
 
     def get_new_release(self):
-        log.debug('get_new_release')
-        try:
-            # Use HTTPS URL to avoid potential spoofing of release page.
-            self.new_release = (
-                urlopen('https://ftp.osuosl.org/pub/deluge/version-2.0')
-                .read()
-                .decode()
-                .strip()
-            )
-        except URLError as ex:
-            log.debug('Unable to get release info from website: %s', ex)
-        else:
-            self.check_new_release()
+        # Upstream version check disabled for Squall fork
+        pass
 
     def check_new_release(self):
-        if self.new_release:
-            log.debug('new_release: %s', self.new_release)
-            if deluge.common.VersionSplit(
-                self.new_release
-            ) > deluge.common.VersionSplit(deluge.common.get_version()):
-                component.get('EventManager').emit(
-                    NewVersionAvailableEvent(self.new_release)
-                )
-                return self.new_release
         return False
 
     # Exported Methods

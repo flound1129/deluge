@@ -25,11 +25,11 @@ class NewReleaseDialog:
         # Set the version labels
         if deluge.common.windows_check() or deluge.common.osx_check():
             main_builder.get_object('image_new_release').set_from_file(
-                deluge.common.get_pixmap('deluge16.png')
+                deluge.common.get_pixmap('squall16.png')
             )
         else:
             main_builder.get_object('image_new_release').set_from_icon_name(
-                'deluge', IconSize.LARGE_TOOLBAR
+                'squall', IconSize.LARGE_TOOLBAR
             )
         main_builder.get_object('label_available_version').set_text(available_version)
         main_builder.get_object('label_client_version').set_text(

@@ -110,7 +110,7 @@ DEFAULT_PREFS = {
     'path_chooser_accelerator_string': 'Tab',
     'path_chooser_max_popup_rows': 20,
     'path_chooser_show_hidden_files': False,
-    'new_release_check': True,
+    'new_release_check': False,
     'proxy': {
         'type': 0,
         'hostname': '',

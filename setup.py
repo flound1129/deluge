@@ -445,7 +445,7 @@ cmdclass = {
 if not windows_check() and not osx_check():
     for icon_path in glob.glob('deluge/ui/data/icons/hicolor/*x*'):
         size = os.path.basename(icon_path)
-        icons = glob.glob(os.path.join(icon_path, 'apps', 'deluge*.png'))
+        icons = glob.glob(os.path.join(icon_path, 'apps', 'squall*.png'))
         _data_files.append((f'share/icons/hicolor/{size}/apps', icons))
     _data_files.extend(
         [
@@ -453,7 +453,7 @@ if not windows_check() and not osx_check():
                 'share/icons/hicolor/scalable/apps',
                 ['deluge/ui/data/icons/hicolor/scalable/apps/deluge.svg'],
             ),
-            ('share/pixmaps', ['deluge/ui/data/pixmaps/deluge.png']),
+            ('share/pixmaps', ['deluge/ui/data/pixmaps/squall.png']),
             (
                 'share/man/man1',
                 [
