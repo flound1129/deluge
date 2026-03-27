@@ -485,7 +485,7 @@ class Core(component.Component):
                     )
                 except AddTorrentError as ex:
                     log.warning('Error when adding torrent: %s', ex)
-                    errors.append(ex)
+                    errors.append(str(ex))
             defer.returnValue(errors)
 
         return task.deferLater(reactor, 0, add_torrents)
