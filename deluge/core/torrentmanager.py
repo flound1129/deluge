@@ -1439,7 +1439,10 @@ class TorrentManager(component.Component):
         except (RuntimeError, KeyError):
             return
 
-        error_message = decode_bytes(alert.error_message())
+        try:
+            error_message = decode_bytes(alert.error_message())
+        except AttributeError:
+            error_message = ''
         if not error_message:
             error_message = decode_bytes(alert.error.message())
         log.debug(

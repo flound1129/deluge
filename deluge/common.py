@@ -871,7 +871,7 @@ def create_magnet_uri(infohash, name=None, trackers=None):
     try:
         infohash = binascii.unhexlify(infohash)
     except TypeError:
-        infohash.encode('utf-8')
+        infohash = infohash.encode('utf-8')
 
     uri = [MAGNET_SCHEME, XT_BTIH_PARAM, base64.b32encode(infohash).decode('utf-8')]
     if name:
@@ -931,7 +931,7 @@ def free_space(path):
 
         return GetDiskFreeSpaceEx(path)[0]
     else:
-        disk_data = os.statvfs(path.encode('utf8'))
+        disk_data = os.statvfs(path)
         block_size = disk_data.f_frsize
         return disk_data.f_bavail * block_size
 
