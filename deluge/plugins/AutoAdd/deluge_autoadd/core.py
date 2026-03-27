@@ -157,10 +157,10 @@ class Core(CorePluginBase):
 
         # Get the info to see if any exceptions are raised
         if not magnet:
-            decoded_torrent = lt.bdecode(filedump)
-            if decoded_torrent is None:
+            try:
+                lt.torrent_info(filedump)
+            except RuntimeError:
                 raise InvalidTorrentError('Torrent file failed decoding.')
-            lt.torrent_info(decoded_torrent)
 
         return filedump
 

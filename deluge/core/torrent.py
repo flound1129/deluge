@@ -35,6 +35,23 @@ from deluge.event import (
 
 log = logging.getLogger(__name__)
 
+
+def _status_paused(status):
+    """Check if torrent is paused, compatible with both lt 1.x and 2.x."""
+    try:
+        return status.paused
+    except AttributeError:
+        return bool(status.flags & lt.torrent_flags.paused)
+
+
+def _status_auto_managed(status):
+    """Check if torrent is auto-managed, compatible with both lt 1.x and 2.x."""
+    try:
+        return status.auto_managed
+    except AttributeError:
+        return bool(status.flags & lt.torrent_flags.auto_managed)
+
+
 LT_TORRENT_STATE_MAP = {
     'queued_for_checking': 'Checking',
     'checking_files': 'Checking',
@@ -449,7 +466,7 @@ class Torrent:
             auto_managed (bool): Enable auto managed.
         """
         self.options['auto_managed'] = auto_managed
-        if not (self.status.paused and not self.status.auto_managed):
+        if not (_status_paused(self.status) and not _status_auto_managed(self.status)):
             self._set_handle_flags(
                 flag=lt.torrent_flags.auto_managed,
                 set_flag=auto_managed,
@@ -675,9 +692,9 @@ class Torrent:
             self.set_status_message(decode_bytes(status_error))
         elif status.moving_storage:
             self.state = 'Moving'
-        elif not session_paused and status.paused and status.auto_managed:
+        elif not session_paused and _status_paused(status) and _status_auto_managed(status):
             self.state = 'Queued'
-        elif session_paused or status.paused:
+        elif session_paused or _status_paused(status):
             self.state = 'Paused'
         else:
             self.state = LT_TORRENT_STATE_MAP.get(str(status.state), str(status.state))
@@ -729,8 +746,8 @@ class Torrent:
             flag=lt.torrent_flags.auto_managed,
             set_flag=False,
         )
-        self.forced_error = TorrentError(message, status.paused, restart_to_resume)
-        if not status.paused:
+        self.forced_error = TorrentError(message, _status_paused(status), restart_to_resume)
+        if not _status_paused(status):
             self.handle.pause()
         self.update_state()
 
@@ -1133,7 +1150,7 @@ class Torrent:
             'num_peers': lambda: self.status.num_peers - self.status.num_seeds,
             'num_seeds': lambda: self.status.num_seeds,
             'owner': lambda: self.options['owner'],
-            'paused': lambda: self.status.paused,
+            'paused': lambda: _status_paused(self.status),
             'prioritize_first_last': lambda: self.options[
                 'prioritize_first_last_pieces'
             ],
@@ -1206,8 +1223,12 @@ class Torrent:
             'last_seen_complete': lambda: self.status.last_seen_complete,
             'name': self.get_name,
             'pieces': self._get_pieces_info,
-            'seed_mode': lambda: self.status.seed_mode,
-            'super_seeding': lambda: self.status.super_seeding,
+            'seed_mode': lambda: bool(self.status.flags & lt.torrent_flags.seed_mode)
+            if hasattr(lt.torrent_flags, 'seed_mode')
+            else getattr(self.status, 'seed_mode', False),
+            'super_seeding': lambda: bool(self.status.flags & lt.torrent_flags.super_seeding)
+            if hasattr(lt.torrent_flags, 'super_seeding')
+            else getattr(self.status, 'super_seeding', False),
             'time_since_download': lambda: self.status.time_since_download,
             'time_since_upload': lambda: self.status.time_since_upload,
             'time_since_transfer': self.get_time_since_transfer,
@@ -1227,7 +1248,7 @@ class Torrent:
         )
         if self.state == 'Error':
             log.debug('Unable to pause torrent while in Error state')
-        elif self.status.paused:
+        elif _status_paused(self.status):
             # This torrent was probably paused due to being auto managed by lt
             # Since we turned auto_managed off, we should update the state which should
             # show it as 'Paused'.  We need to emit a torrent_paused signal because
@@ -1244,7 +1265,7 @@ class Torrent:
 
     def resume(self):
         """Resumes this torrent."""
-        if self.status.paused and self.status.auto_managed:
+        if _status_paused(self.status) and _status_auto_managed(self.status):
             log.debug('Resume not possible for auto-managed torrent!')
         elif self.forced_error and self.forced_error.was_paused:
             log.debug(
@@ -1393,7 +1414,13 @@ class Torrent:
         """
         if log.isEnabledFor(logging.DEBUG):
             log.debug('Requesting save_resume_data for torrent: %s', self.torrent_id)
-        flags = lt.save_resume_flags_t.flush_disk_cache if flush_disk_cache else 0
+        if flush_disk_cache:
+            try:
+                flags = lt.save_resume_flags_t.flush_disk_cache
+            except AttributeError:
+                flags = lt.torrent_handle.flush_disk_cache
+        else:
+            flags = 0
         # Don't generate fastresume data if torrent is in a Squall Error state.
         if self.forced_error:
             component.get('TorrentManager').waiting_on_resume_data[
@@ -1479,7 +1506,7 @@ class Torrent:
             self.forcing_recheck_paused = self.forced_error.was_paused
             self.clear_forced_error_state(update_state=False)
         else:
-            self.forcing_recheck_paused = self.status.paused
+            self.forcing_recheck_paused = _status_paused(self.status)
 
         try:
             self.handle.force_recheck()

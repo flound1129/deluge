@@ -485,7 +485,11 @@ class TorrentManager(component.Component):
         if options['file_priorities'] and torrent_info:
             add_torrent_params['file_priorities'] = list(options['file_priorities'])
         if resume_data:
-            add_torrent_params['resume_data'] = resume_data
+            # Ensure resume_data is bencoded bytes for the add_torrent_params dict.
+            if isinstance(resume_data, dict):
+                add_torrent_params['resume_data'] = lt.bencode(resume_data)
+            else:
+                add_torrent_params['resume_data'] = resume_data
 
         # Set flags: enable duplicate_is_error & override_resume_data, disable auto_managed.
         add_torrent_params['flags'] = (
@@ -535,7 +539,7 @@ class TorrentManager(component.Component):
 
         if filedump:
             try:
-                torrent_info = lt.torrent_info(lt.bdecode(filedump))
+                torrent_info = lt.torrent_info(filedump)
             except RuntimeError as ex:
                 raise AddTorrentError(
                     'Unable to add torrent, decoding filedump failed: %s' % ex
@@ -600,7 +604,7 @@ class TorrentManager(component.Component):
 
         if filedump:
             try:
-                torrent_info = lt.torrent_info(lt.bdecode(filedump))
+                torrent_info = lt.torrent_info(filedump)
             except RuntimeError as ex:
                 raise AddTorrentError(
                     'Unable to add torrent, decoding filedump failed: %s' % ex
@@ -1586,7 +1590,11 @@ class TorrentManager(component.Component):
         except (RuntimeError, KeyError):
             return
 
-        new_name = decode_bytes(alert.new_name())
+        try:
+            new_name = decode_bytes(alert.new_name())
+        except TypeError:
+            # lt 2.x: new_name is a property, not a method
+            new_name = decode_bytes(alert.new_name)
         log.debug('index: %s name: %s', alert.index, new_name)
 
         # We need to see if this file index is in a waiting_on_folder dict
