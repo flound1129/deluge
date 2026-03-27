@@ -22,11 +22,13 @@ override_dh_virtualenv:
 		--use-system-packages \
 		--package squall-common
 
-execute_before_dh_virtualenv:
-	echo "$(VERSION)" | sed 's/~/./' > RELEASE-VERSION
+execute_before_dh_install:
 	# Generate desktop file from template (strip intltool underscore prefixes)
 	sed 's/^_//; s/=_/=/' deluge/ui/data/share/applications/deluge.desktop.in \
 		> deluge/ui/data/share/applications/squall.desktop
+
+execute_before_dh_virtualenv:
+	echo "$(VERSION)" | sed 's/~/./' > RELEASE-VERSION
 
 execute_after_dh_virtualenv:
 	# Unpack plugin eggs
