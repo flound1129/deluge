@@ -463,16 +463,16 @@ class TorrentManager(component.Component):
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug('renaming file index %s to %s', index, fname)
                 try:
-                    torrent_info.rename_file(index, fname.encode('utf8'))
+                    torrent_info.rename_file(int(index), fname.encode('utf8'))
                 except TypeError:
-                    torrent_info.rename_file(index, fname)
+                    torrent_info.rename_file(int(index), fname)
             add_torrent_params['ti'] = torrent_info
 
         if log.isEnabledFor(logging.DEBUG):
             log.debug('options: %s', options)
 
         # Fill in the rest of the add_torrent_params dictionary.
-        add_torrent_params['save_path'] = options['download_location'].encode('utf8')
+        add_torrent_params['save_path'] = options['download_location']
         if options['name']:
             add_torrent_params['name'] = options['name']
         if options['pre_allocate_storage']:
