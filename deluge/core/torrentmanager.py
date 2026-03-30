@@ -1718,8 +1718,14 @@ class TorrentManager(component.Component):
             torrent_id = 'unknown'
         error = getattr(alert, 'error', None)
         error_msg = error.message() if error and error.value() != 0 else 'none'
-        reason = getattr(alert, 'reason', 'unknown')
-        op = getattr(alert, 'op', 'unknown')
+        try:
+            reason = alert.reason
+        except TypeError:
+            reason = 'unknown'
+        try:
+            op = alert.op
+        except TypeError:
+            op = 'unknown'
         log.debug(
             'Peer disconnected: %s (torrent: %s, error: %s, reason: %s, op: %s)',
             alert.ip,
