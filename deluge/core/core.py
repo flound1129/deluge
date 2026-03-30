@@ -112,8 +112,11 @@ class Core(component.Component):
         component.Component.__init__(self, 'Core')
 
         # Start the libtorrent session.
-        user_agent = f'Deluge/{SQUALL_VER} libtorrent/{LT_VERSION}'
-        peer_id = self._create_peer_id('2.1.1')
+        # Use a consistent Deluge version for both peer_id and user_agent so
+        # trackers don't flag the client as spoofed.
+        deluge_compat_ver = '2.1.1'
+        user_agent = f'Deluge/{deluge_compat_ver} libtorrent/{LT_VERSION}'
+        peer_id = self._create_peer_id(deluge_compat_ver)
         log.debug('Starting session (peer_id: %s, user_agent: %s)', peer_id, user_agent)
         settings_pack = {
             'peer_fingerprint': peer_id,
