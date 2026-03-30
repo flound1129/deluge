@@ -213,6 +213,13 @@ class Core(component.Component):
 
     def start(self):
         """Starts the core"""
+        # Verify identity settings survived load_state + apply_settings
+        settings = self.session.get_settings()
+        log.info(
+            'Session identity — peer_fingerprint: %s, user_agent: %s',
+            settings.get('peer_fingerprint', '<missing>'),
+            settings.get('user_agent', '<missing>'),
+        )
         self.session_status_timer.start(self.session_status_timer_interval)
         self.session_rates_timer.start(self.session_rates_timer_interval, now=False)
 

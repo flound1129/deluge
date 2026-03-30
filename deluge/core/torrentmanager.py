@@ -227,6 +227,7 @@ class TorrentManager(component.Component):
             'save_resume_data',
             'save_resume_data_failed',
             'fastresume_rejected',
+            'peer_disconnected',
         ]
 
         for alert_handle in alert_handles:
@@ -1708,6 +1709,25 @@ class TorrentManager(component.Component):
                     'send_buffer_watermark reached maximum value: %s Bytes',
                     max_send_buffer_watermark,
                 )
+
+    def on_alert_peer_disconnected(self, alert):
+        """Alert handler for libtorrent peer_disconnected_alert"""
+        try:
+            torrent_id = str(alert.handle.info_hash())
+        except RuntimeError:
+            torrent_id = 'unknown'
+        error = getattr(alert, 'error', None)
+        error_msg = error.message() if error and error.value() != 0 else 'none'
+        reason = getattr(alert, 'reason', 'unknown')
+        op = getattr(alert, 'op', 'unknown')
+        log.debug(
+            'Peer disconnected: %s (torrent: %s, error: %s, reason: %s, op: %s)',
+            alert.ip,
+            torrent_id,
+            error_msg,
+            reason,
+            op,
+        )
 
     def separate_keys(self, keys, torrent_ids):
         """Separates the input keys into torrent class keys and plugins keys"""
