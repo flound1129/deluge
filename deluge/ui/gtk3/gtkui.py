@@ -68,7 +68,7 @@ from .toolbar import ToolBar
 from .torrentdetails import TorrentDetails
 from .torrentview import TorrentView
 
-set_prgname('deluge')
+set_prgname('squall')
 log = logging.getLogger(__name__)
 
 try:
