@@ -128,6 +128,10 @@ class Core(component.Component):
         # Load the settings, if available.
         self._load_session_state()
 
+        # Re-apply identity settings after load_state, which restores the
+        # saved settings_pack and would overwrite our peer_id/user_agent.
+        self.session.apply_settings(settings_pack)
+
         # Enable libtorrent extensions
         # Allows peers to download the metadata from the swarm directly
         self.session.add_extension('ut_metadata')
