@@ -229,6 +229,7 @@ class TorrentManager(component.Component):
             'fastresume_rejected',
             'peer_disconnected',
             'torrent_error',
+            'torrent_delete_failed',
         ]
 
         for alert_handle in alert_handles:
@@ -1653,6 +1654,10 @@ class TorrentManager(component.Component):
         alert_msg = decode_bytes(alert.message())
         log.error('Torrent error: %s', alert_msg)
         torrent.force_error_state(alert_msg)
+
+    def on_alert_torrent_delete_failed(self, alert):
+        """Alert handler for libtorrent torrent_delete_failed_alert"""
+        log.error('Failed to delete torrent data: %s', decode_bytes(alert.message()))
 
     def on_alert_file_completed(self, alert):
         """Alert handler for libtorrent file_completed_alert
