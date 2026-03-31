@@ -1276,24 +1276,25 @@ class Core(component.Component):
         return d
 
     @export
-    def get_free_space(self, path: str = None) -> int:
+    def get_free_space(self, path: str = None):
         """Returns the number of free bytes at path
 
         Args:
             path: the path to check free space at, if None, use the default download location
 
         Returns:
-            the number of free bytes at path
-
-        Raises:
-            InvalidPathError: if the path is invalid
+            Deferred: the number of free bytes at path, or -1 on error
         """
         if not path:
             path = self.config['download_location']
-        try:
-            return deluge.common.free_space(path)
-        except InvalidPathError:
-            return -1
+
+        def _get_free_space(path):
+            try:
+                return deluge.common.free_space(path)
+            except InvalidPathError:
+                return -1
+
+        return threads.deferToThread(_get_free_space, path)
 
     def _on_external_ip_event(self, external_ip):
         self.external_ip = external_ip

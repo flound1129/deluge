@@ -351,22 +351,29 @@ def show_file(path, timestamp=None):
             timestamp,
         )
 
-        if dbus:
-            bus = dbus.SessionBus()
+        def _show_via_dbus():
             try:
+                bus = dbus.SessionBus()
                 filemanager1 = bus.get_object(DBUS_FM_ID, DBUS_FM_PATH)
-            except dbus.exceptions.DBusException as ex:
-                log.debug('Unable to get dbus file manager: %s', ex)
-                # Fallback to xdg-open
-            else:
                 paths = [urljoin('file:', pathname2url(path))]
                 filemanager1.ShowItems(paths, startup_id, dbus_interface=DBUS_FM_ID)
-                return
+            except Exception as ex:
+                log.debug('Unable to show file via dbus: %s', ex)
+                env = os.environ.copy()
+                env['DESKTOP_STARTUP_ID'] = startup_id.replace('dbus', 'xdg-open')
+                subprocess.Popen(
+                    ['xdg-open', os.path.dirname(path.rstrip('/'))], env=env
+                )
 
-        env = os.environ.copy()
-        env['DESKTOP_STARTUP_ID'] = startup_id.replace('dbus', 'xdg-open')
-        # No option in xdg to highlight a file so just open parent folder.
-        subprocess.Popen(['xdg-open', os.path.dirname(path.rstrip('/'))], env=env)
+        if dbus:
+            import threading
+
+            threading.Thread(target=_show_via_dbus, daemon=True).start()
+        else:
+            env = os.environ.copy()
+            env['DESKTOP_STARTUP_ID'] = startup_id.replace('dbus', 'xdg-open')
+            # No option in xdg to highlight a file so just open parent folder.
+            subprocess.Popen(['xdg-open', os.path.dirname(path.rstrip('/'))], env=env)
 
 
 def open_url_in_browser(url):

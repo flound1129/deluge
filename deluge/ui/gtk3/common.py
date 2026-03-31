@@ -284,32 +284,44 @@ def save_pickled_state_file(filename, state):
         filename (str): Filename to be saved to config
         state (state): The data to be pickled and written to file
     """
+    import threading
+
     from deluge.configmanager import get_config_dir
 
     filepath = os.path.join(get_config_dir(), 'gtk3ui_state', filename)
     filepath_bak = filepath + '.bak'
     filepath_tmp = filepath + '.tmp'
 
+    # Pickle in the main thread (not thread-safe), write in a background thread.
     try:
-        if os.path.isfile(filepath):
-            log.debug('Creating backup of %s at: %s', filename, filepath_bak)
-            shutil.copy2(filepath, filepath_bak)
-    except OSError as ex:
-        log.error('Unable to backup %s to %s: %s', filepath, filepath_bak, ex)
-    else:
+        data = pickle.dumps(state, protocol=2)
+    except pickle.PicklingError as ex:
+        log.error('Unable to pickle %s: %s', filename, ex)
+        return
+
+    def _write():
+        try:
+            if os.path.isfile(filepath):
+                log.debug('Creating backup of %s at: %s', filename, filepath_bak)
+                shutil.copy2(filepath, filepath_bak)
+        except OSError as ex:
+            log.error('Unable to backup %s to %s: %s', filepath, filepath_bak, ex)
+            return
+
         log.info('Saving the %s at: %s', filename, filepath)
         try:
             with open(filepath_tmp, 'wb') as _file:
-                # Pickle the state object
-                pickle.dump(state, _file, protocol=2)
+                _file.write(data)
                 _file.flush()
                 os.fsync(_file.fileno())
             shutil.move(filepath_tmp, filepath)
-        except (OSError, EOFError, pickle.PicklingError) as ex:
+        except (OSError, EOFError) as ex:
             log.error('Unable to save %s: %s', filename, ex)
             if os.path.isfile(filepath_bak):
                 log.info('Restoring backup of %s from: %s', filename, filepath_bak)
                 shutil.move(filepath_bak, filepath)
+
+    threading.Thread(target=_write, daemon=True).start()
 
 
 def load_pickled_state_file(filename):

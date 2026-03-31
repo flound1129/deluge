@@ -12,7 +12,7 @@ from deluge.common import get_localhost_auth
 from deluge.conftest import BaseTestCase
 from deluge.core import rpcserver
 from deluge.core.authmanager import AuthManager
-from deluge.core.rpcserver import SquallRPCProtocol, RPCServer
+from deluge.core.rpcserver import RPCServer, SquallRPCProtocol
 from deluge.log import setup_logger
 
 setup_logger('none')

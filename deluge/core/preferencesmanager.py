@@ -427,7 +427,7 @@ class PreferencesManager(component.Component):
                             + '&plugins='
                             + quote_plus(':'.join(self.config['enabled_plugins']))
                         )
-                        urlopen(url)
+                        urlopen(url, timeout=10)
                     except OSError as ex:
                         log.debug('Network error while trying to send info: %s', ex)
                     else:

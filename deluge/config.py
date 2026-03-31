@@ -225,7 +225,7 @@ class Config:
 
             self.callLater(0, do_change_callbacks, key, value)
         except Exception:
-            pass
+            log.warning('Failed to schedule config change callback for key: %s', key)
 
         # We set the save_timer for 5 seconds if not already set
         if not self._save_timer or not self._save_timer.active():

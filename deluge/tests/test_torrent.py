@@ -8,6 +8,7 @@ import os
 import time
 from base64 import b64encode
 from unittest import mock
+from unittest.mock import AsyncMock
 
 import pytest
 from twisted.internet import defer, reactor
@@ -23,8 +24,6 @@ from deluge.core.core import Core
 from deluge.core.rpcserver import RPCServer
 from deluge.core.torrent import Torrent
 from deluge.core.torrentmanager import TorrentManager, TorrentState
-
-from unittest.mock import AsyncMock
 
 
 class TestTorrent(BaseTestCase):
