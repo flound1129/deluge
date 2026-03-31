@@ -72,23 +72,14 @@ class MainWindow(component.Component):
         self.config = ConfigManager('gtk3ui.conf')
         self.main_builder = Gtk.Builder()
 
-        # Set theme
-        Gtk.Settings.get_default().set_property(
-            'gtk-application-prefer-dark-theme',
-            self.config['prefer_dark_theme'],
-        )
-
-        # Load Squall CSS overlay
-        css_path = resource_filename('deluge', os.path.join('ui', 'data', 'squall.css'))
-        if os.path.isfile(css_path):
-            from gi.repository import Gdk
-            css_provider = Gtk.CssProvider()
-            css_provider.load_from_path(css_path)
-            Gdk.Screen.get_default().get_display()
-            Gtk.StyleContext.add_provider_for_screen(
-                Gdk.Screen.get_default(),
-                css_provider,
-                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+        # Set theme — use Squall theme if installed, otherwise respect dark preference
+        gtk_settings = Gtk.Settings.get_default()
+        if os.path.isdir('/usr/share/themes/Squall'):
+            gtk_settings.set_property('gtk-theme-name', 'Squall')
+        else:
+            gtk_settings.set_property(
+                'gtk-application-prefer-dark-theme',
+                self.config['prefer_dark_theme'],
             )
 
         # Patch this GtkBuilder to avoid connecting signals from elsewhere

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=X-GNOME-Metatheme
+Name=Squall
+Comment=Dark theme with teal accents for the Squall torrent client
+Encoding=UTF-8
+
+[X-GNOME-Metatheme]
+GtkTheme=Squall
+IconTheme=hicolor

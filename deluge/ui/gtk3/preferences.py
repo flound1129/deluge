@@ -1100,10 +1100,11 @@ class Preferences(component.Component):
 
     def on_button_cancel_clicked(self, data):
         log.debug('on_button_cancel_clicked')
-        Gtk.Settings.get_default().set_property(
-            'gtk-application-prefer-dark-theme',
-            self.gtkui_config['prefer_dark_theme'],
-        )
+        if not os.path.isdir('/usr/share/themes/Squall'):
+            Gtk.Settings.get_default().set_property(
+                'gtk-application-prefer-dark-theme',
+                self.gtkui_config['prefer_dark_theme'],
+            )
         self.hide()
         return True
 

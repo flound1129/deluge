@@ -503,7 +503,6 @@ _entry_points['deluge.ui'] = [
 
 
 _package_data['deluge'] = [
-    'ui/data/*.css',
     'ui/data/pixmaps/*.png',
     'ui/data/pixmaps/*.svg',
     'ui/data/pixmaps/*.ico',

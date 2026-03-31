@@ -16,3 +16,5 @@ deluge/ui/data/icons/hicolor/256x256/apps/squall.png usr/share/icons/hicolor/256
 deluge/ui/data/icons/hicolor/512x512/apps/squall.png usr/share/icons/hicolor/512x512/apps
 deluge/ui/data/pixmaps/squall.png usr/share/pixmaps
 deluge/ui/data/share/applications/squall.desktop usr/share/applications
+packaging/themes/Squall/index.theme usr/share/themes/Squall
+packaging/themes/Squall/gtk-3.0/gtk.css usr/share/themes/Squall/gtk-3.0
