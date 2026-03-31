@@ -11,7 +11,7 @@ import os
 import uuid
 from socket import gaierror, getaddrinfo
 
-from twisted.internet import defer
+from twisted.internet import defer, threads
 
 from deluge.common import get_localhost_auth
 from deluge.config import Config
@@ -217,36 +217,44 @@ class HostList:
             log.warning('Problem getting host_id info from hostlist')
             return defer.succeed(status_offline)
 
-        try:
-            ips = list({addrinfo[4][0] for addrinfo in getaddrinfo(host, None)})
-        except (gaierror, IndexError) as ex:
-            log.warning('Unable to resolve host %s to IP: %s', host, ex.args[1])
-            return defer.succeed(status_offline)
+        def _resolve_and_check(host, port, user, host_id):
+            try:
+                ips = list({addrinfo[4][0] for addrinfo in getaddrinfo(host, None)})
+            except (gaierror, IndexError) as ex:
+                log.warning('Unable to resolve host %s to IP: %s', host, ex.args[1])
+                return None
+            return [
+                (
+                    host_ip,
+                    port,
+                    'localclient' if not user and host_ip in LOCALHOST else user,
+                )
+                for host_ip in ips
+            ]
 
-        host_conn_list = [
-            (
-                host_ip,
-                port,
-                'localclient' if not user and host_ip in LOCALHOST else user,
-            )
-            for host_ip in ips
-        ]
+        def on_resolved(host_conn_list):
+            if host_conn_list is None:
+                return status_offline
 
-        for host_conn_info in host_conn_list:
-            if client.connected() and host_conn_info == client.connection_info():
-                # Currently connected to host_id daemon.
-                def on_info(info, host_id):
-                    log.debug('Client connected, query info: %s', info)
-                    return host_id, 'Connected', info
+            for host_conn_info in host_conn_list:
+                if client.connected() and host_conn_info == client.connection_info():
+                    def on_info(info, host_id):
+                        log.debug('Client connected, query info: %s', info)
+                        return host_id, 'Connected', info
 
-                return client.daemon.info().addCallback(on_info, host_id)
-            else:
-                # Attempt to connect to daemon with host_id details.
-                c = Client()
-                d = c.connect(host, port, skip_authentication=True)
-                d.addCallback(on_connect, c, host_id)
-                d.addErrback(on_connect_failed, host_id)
-                return d
+                    return client.daemon.info().addCallback(on_info, host_id)
+                else:
+                    c = Client()
+                    d = c.connect(host, port, skip_authentication=True)
+                    d.addCallback(on_connect, c, host_id)
+                    d.addErrback(on_connect_failed, host_id)
+                    return d
+
+            return status_offline
+
+        d = threads.deferToThread(_resolve_and_check, host, port, user, host_id)
+        d.addCallback(on_resolved)
+        return d
 
     def update_host(self, host_id, hostname, port, username, password):
         """Update the supplied host id with new connection details.

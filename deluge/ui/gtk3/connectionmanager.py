@@ -8,7 +8,6 @@
 
 import logging
 import os
-from socket import gaierror, getaddrinfo
 from urllib.parse import urlparse
 
 from gi.repository import Gtk
@@ -220,15 +219,6 @@ class ConnectionManager(component.Component):
 
         # Get selected host info.
         __, host, port, __, __, status, __, __ = model[row]
-
-        try:
-            getaddrinfo(host, None)
-        except gaierror as ex:
-            log.error(
-                'Error resolving host %s to ip: %s', row[HOSTLIST_COL_HOST], ex.args[1]
-            )
-            self.builder.get_object('button_connect').set_sensitive(False)
-            return
 
         log.debug('Host Status: %s, %s', host, status)
 
