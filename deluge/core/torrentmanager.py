@@ -228,6 +228,7 @@ class TorrentManager(component.Component):
             'save_resume_data_failed',
             'fastresume_rejected',
             'peer_disconnected',
+            'torrent_error',
         ]
 
         for alert_handle in alert_handles:
@@ -1639,7 +1640,19 @@ class TorrentManager(component.Component):
             torrent = self.torrents[str(alert.handle.info_hash())]
         except (RuntimeError, KeyError):
             return
-        torrent.update_state()
+        alert_msg = decode_bytes(alert.message())
+        log.error('File error: %s', alert_msg)
+        torrent.force_error_state(alert_msg)
+
+    def on_alert_torrent_error(self, alert):
+        """Alert handler for libtorrent torrent_error_alert"""
+        try:
+            torrent = self.torrents[str(alert.handle.info_hash())]
+        except (RuntimeError, KeyError):
+            return
+        alert_msg = decode_bytes(alert.message())
+        log.error('Torrent error: %s', alert_msg)
+        torrent.force_error_state(alert_msg)
 
     def on_alert_file_completed(self, alert):
         """Alert handler for libtorrent file_completed_alert
