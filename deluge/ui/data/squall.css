@@ -1,0 +1,141 @@
+/*
+ * Squall GTK3 theme overlay
+ *
+ * Palette derived from the squall icon:
+ *   Dark navy:  #0F182C / #16314B
+ *   Blue:       #0A619D
+ *   Teal:       #21D0AC
+ *   Light:      #D6E8E8
+ */
+
+/* Named color overrides for GTK theme */
+@define-color theme_selected_bg_color #1A6B5A;
+@define-color theme_selected_fg_color #D6E8E8;
+@define-color accent_color #21D0AC;
+@define-color link_color #21D0AC;
+@define-color warning_color #E8C547;
+@define-color error_color #E84747;
+@define-color success_color #21D0AC;
+
+/* Selection highlight */
+selection {
+    background-color: #1A6B5A;
+    color: #D6E8E8;
+}
+
+/* Treeview / list selections */
+treeview:selected,
+treeview:selected:focus,
+row:selected {
+    background-color: #1A6B5A;
+    color: #D6E8E8;
+}
+
+/* Notebook tabs */
+notebook > header > tabs > tab:checked {
+    border-bottom-color: #21D0AC;
+}
+
+/* Progress bars (download/upload) */
+progressbar > trough > progress {
+    background-image: linear-gradient(to right, #0A619D, #21D0AC);
+    border-color: transparent;
+}
+
+levelbar > trough > block.filled {
+    background-color: #21D0AC;
+    border-color: transparent;
+}
+
+/* Buttons - primary/suggested */
+button.suggested-action {
+    background-image: linear-gradient(to bottom, #1D7A6A, #1A6B5A);
+    color: #D6E8E8;
+    border-color: #145A4C;
+}
+
+button.suggested-action:hover {
+    background-image: linear-gradient(to bottom, #21D0AC, #1D7A6A);
+    color: #0F182C;
+}
+
+/* Links */
+*:link, button.link {
+    color: #21D0AC;
+}
+
+*:link:hover, button.link:hover {
+    color: #5DE0C5;
+}
+
+/* Focus ring */
+*:focus {
+    outline-color: alpha(#21D0AC, 0.5);
+}
+
+/* Scrollbar */
+scrollbar slider {
+    background-color: #1D4C65;
+}
+
+scrollbar slider:hover {
+    background-color: #21D0AC;
+}
+
+/* Switch (toggle) */
+switch:checked {
+    background-color: #1A6B5A;
+}
+
+switch:checked slider {
+    background-color: #21D0AC;
+}
+
+/* Check/radio buttons */
+check:checked, radio:checked {
+    background-color: #1A6B5A;
+    color: #21D0AC;
+}
+
+/* Sidebar / filter treeview */
+.sidebar row:selected {
+    background-color: #1A6B5A;
+    color: #D6E8E8;
+}
+
+/* Headerbar / toolbar */
+headerbar, .titlebar {
+    background-color: #131B2E;
+    color: #D6E8E8;
+}
+
+toolbar {
+    background-color: alpha(#16314B, 0.4);
+}
+
+/* Statusbar */
+statusbar {
+    background-color: #131B2E;
+    color: #8BA4B8;
+}
+
+/* Entry focus */
+entry:focus {
+    border-color: #21D0AC;
+    box-shadow: inset 0 0 0 1px alpha(#21D0AC, 0.3);
+}
+
+/* Spinner */
+spinner {
+    color: #21D0AC;
+}
+
+/* Menubar */
+menubar {
+    background-color: #131B2E;
+    color: #D6E8E8;
+}
+
+menubar > menuitem:hover {
+    background-color: #1A6B5A;
+}
