@@ -1,0 +1,24 @@
+[Unit]
+Description=Squall Bittorrent Client Daemon
+Documentation=man:squalld
+After=network-online.target
+
+[Service]
+Type=simple
+UMask=007
+
+ExecStart=/usr/sbin/squalld -d
+Restart=on-failure
+
+# Time to wait before forcefully stopped.
+TimeoutStopSec=300
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+[Install]
+WantedBy=default.target

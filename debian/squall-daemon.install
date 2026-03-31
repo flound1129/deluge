@@ -1,1 +1,2 @@
 packaging/systemd/squalld.service lib/systemd/system
+packaging/systemd/user/squalld.service usr/lib/systemd/user
