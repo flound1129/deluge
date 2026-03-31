@@ -15,7 +15,6 @@ import tempfile
 from base64 import b64decode, b64encode
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
-from urllib.request import URLError, urlopen
 
 from twisted.internet import defer, reactor, task, threads
 from twisted.web.client import Agent, readBody
@@ -47,7 +46,6 @@ from deluge.error import (
     InvalidTorrentError,
 )
 from deluge.event import (
-    NewVersionAvailableEvent,
     SessionPausedEvent,
     SessionResumedEvent,
     TorrentQueueChangedEvent,

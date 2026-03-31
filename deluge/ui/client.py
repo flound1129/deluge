@@ -9,7 +9,6 @@
 
 import logging
 import subprocess
-import sys
 
 from twisted.internet import defer, reactor, ssl
 from twisted.internet.protocol import ClientFactory
