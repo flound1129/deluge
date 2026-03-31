@@ -103,6 +103,21 @@ Description: lightweight, lean BitTorrent client (web frontend)
  .
  This package contains the web frontend.
 
+Package: squall-spectravr
+Architecture: all
+Depends:
+ squall-common (= ${source:Version}),
+ squall-daemon (= ${source:Version}),
+ squall-web (= ${source:Version}),
+ ${misc:Depends},
+Description: SpectraVR plugin for Squall
+ Adds a REST API to the Squall daemon for torrent management and video
+ streaming, used by the SpectraVR VR media player app.
+ .
+ Provides endpoints for adding/removing torrents, file management,
+ VR projection tagging, and byte-range HTTP streaming. Includes a
+ token reveal button in the Squall web preferences.
+
 Package: squall-daemon
 Architecture: all
 Pre-Depends:

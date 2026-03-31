@@ -1,0 +1,35 @@
+#!/bin/sh
+
+set -e
+
+CONF_DIR=/var/lib/squall-daemon/config
+CONF_FILE=$CONF_DIR/spectravr.conf
+DAEMON_USER=debian-squall-daemon
+
+case "${1}" in
+	configure)
+		if [ ! -f "$CONF_FILE" ]; then
+			TOKEN=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+			mkdir -p "$CONF_DIR"
+			printf '[spectravr]\ntoken = %s\n' "$TOKEN" > "$CONF_FILE"
+			if getent passwd "$DAEMON_USER" > /dev/null 2>&1; then
+				chown "$DAEMON_USER:$DAEMON_USER" "$CONF_FILE"
+			fi
+			chmod 600 "$CONF_FILE"
+			echo "SpectraVR: token written to $CONF_FILE"
+			echo "SpectraVR: reveal it in Squall Web → Preferences → SpectraVR"
+		fi
+		;;
+
+	abort-upgrade|abort-remove|abort-deconfigure)
+		;;
+
+	*)
+		echo "postinst called with unknown argument \`${1}'" >&2
+		exit 1
+		;;
+esac
+
+#DEBHELPER#
+
+exit 0

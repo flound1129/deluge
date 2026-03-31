@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -e
+
+case "${1}" in
+	purge)
+		rm -f /var/lib/squall-daemon/config/spectravr.conf
+		rm -f /var/lib/squall-daemon/config/spectravr.db
+		;;
+esac
+
+#DEBHELPER#
+
+exit 0
