@@ -137,30 +137,7 @@ scrollbar slider:hover {
     color: #0A619D;
 }
 
-/* Headerbar */
-headerbar, .titlebar {
-    background-color: #131B2E;
-    color: #D6E8E8;
-}
-
-/* Toolbar */
-toolbar {
-    background-color: alpha(#16314B, 0.4);
-}
-
-/* Statusbar */
-statusbar {
-    background-color: #131B2E;
-    color: #8BA4B8;
-}
-
-/* Menubar */
-menubar {
-    background-color: #131B2E;
-    color: #D6E8E8;
-}
-
-menubar > menuitem:hover,
+/* Menu hover */
 menu menuitem:hover {
     background-color: #1A6B5A;
     color: #D6E8E8;
@@ -169,12 +146,6 @@ menu menuitem:hover {
 /* Spinner */
 spinner {
     color: #21D0AC;
-}
-
-/* Tooltip */
-tooltip {
-    background-color: #16314B;
-    color: #D6E8E8;
 }
 
 /* Spinbutton / combobox focus */
