@@ -29,6 +29,18 @@ case "${1}" in
 		Add_override ${DELUGE_USER} adm 2750 /var/log/squall-daemon
 		Add_override ${DELUGE_USER} ${DELUGE_GROUP} 0750 /var/lib/squall-daemon
 		Add_override ${DELUGE_USER} ${DELUGE_GROUP} 0750 /var/lib/squall-daemon/config
+
+		# Restart user instances of squalld after upgrade
+		for uid_dir in /run/user/*/; do
+			[ -d "$uid_dir" ] || continue
+			uid=$(basename "$uid_dir")
+			user=$(id -nu "$uid" 2>/dev/null) || continue
+			if sudo -u "$user" XDG_RUNTIME_DIR="$uid_dir" \
+			   systemctl --user is-active squalld.service >/dev/null 2>&1; then
+				sudo -u "$user" XDG_RUNTIME_DIR="$uid_dir" \
+				    systemctl --user restart squalld.service >/dev/null 2>&1 || true
+			fi
+		done
 		;;
 
 	abort-upgrade|abort-remove|abort-deconfigure)
