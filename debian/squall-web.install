@@ -1,1 +1,2 @@
 packaging/systemd/squall-web.service lib/systemd/system
+packaging/systemd/user/squall-web.service usr/lib/systemd/user

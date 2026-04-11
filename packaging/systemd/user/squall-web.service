@@ -1,0 +1,23 @@
+[Unit]
+Description=Squall Bittorrent Client Web Interface
+Documentation=man:squall-web
+After=squalld.service
+Wants=squalld.service
+
+[Service]
+Type=simple
+UMask=027
+
+ExecStart=/usr/bin/squall-web -d
+Restart=on-failure
+Slice=background.slice
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+[Install]
+WantedBy=default.target
