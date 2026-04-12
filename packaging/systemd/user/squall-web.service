@@ -8,6 +8,11 @@ Wants=squalld.service
 Type=simple
 UMask=027
 
+# Isolate from the invoking user's ~/.local site-packages so the dh-virtualenv
+# venv (built with --use-system-packages) can't accidentally pick up a
+# conflicting cryptography/OpenSSL binding from user site.
+Environment=PYTHONNOUSERSITE=1
+
 ExecStart=/usr/bin/squall-web -d
 Restart=on-failure
 Slice=background.slice
