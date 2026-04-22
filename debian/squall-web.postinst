@@ -5,6 +5,14 @@ set -e
 DELUGE_WEB_USER="debian-squall-web"
 DELUGE_WEB_GROUP="debian-squall-web"
 
+Add_override ()
+{
+	if ! dpkg-statoverride --list ${4} > /dev/null 2>&1
+	then
+		dpkg-statoverride --update --add ${@}
+	fi
+}
+
 case "${1}" in
 	configure)
 		if ! getent group ${DELUGE_WEB_GROUP} > /dev/null 2>&1
@@ -17,6 +25,9 @@ case "${1}" in
 			useradd --system -g ${DELUGE_WEB_GROUP} --home-dir /var/lib/squall-web \
 				--shell /usr/sbin/nologin ${DELUGE_WEB_USER}
 		fi
+
+		Add_override ${DELUGE_WEB_USER} adm 2750 /var/log/squall-web
+		Add_override ${DELUGE_WEB_USER} ${DELUGE_WEB_GROUP} 0750 /var/lib/squall-web
 		;;
 
 	abort-upgrade|abort-remove|abort-deconfigure)
