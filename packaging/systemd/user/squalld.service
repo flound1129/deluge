@@ -5,7 +5,7 @@ After=network-online.target
 
 [Service]
 Type=simple
-UMask=007
+UMask=022
 
 # Isolate from the invoking user's ~/.local site-packages so the dh-virtualenv
 # venv (built with --use-system-packages) doesn't pick up conflicting bindings.
