@@ -7,7 +7,7 @@ After=network-online.target
 Type=simple
 User=debian-squall-daemon
 Group=debian-squall-daemon
-UMask=007
+UMask=022
 
 EnvironmentFile=-/etc/default/squall-daemon
 ExecStart=/usr/sbin/squalld -d -c /var/lib/squall-daemon/config -l /var/log/squall-daemon/daemon.log
