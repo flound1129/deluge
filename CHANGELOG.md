@@ -26,6 +26,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 #### Fixed
 
 - Fix passwords being ignored in certain dialogs such as Tray Password and Connection Manager.
+- Fix Status tab appending `pieces`/`num_pieces` to its status key list on every update, growing the list and the status RPC request without bound while the pieces bar is enabled.
+- Fix a new pieces bar widget being packed into the Status tab each time the `show_piecesbar` preference is toggled on, leaving the previous one alive and hidden.
+- Fix the Files tab caching the file list of every torrent ever viewed. The cache is now bounded and cleared on disconnect.
+- Fix `SessionProxy` retaining per-torrent status key timestamps after disconnect.
+- Fix the sidebar filter tree keeping a row for every filter value ever seen. Transient values such as tracker hosts are now removed rather than hidden.
 
 ## 2.2.0 (2025-04-28)
 
