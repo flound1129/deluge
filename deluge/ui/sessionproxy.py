@@ -64,6 +64,10 @@ class SessionProxy(component.Component):
         client.deregister_event_handler('TorrentRemovedEvent', self.on_torrent_removed)
         client.deregister_event_handler('TorrentAddedEvent', self.on_torrent_added)
         self.torrents = {}
+        # Must be dropped alongside torrents, otherwise entries for torrents
+        # removed while disconnected can never be reclaimed: on_torrent_removed
+        # only deletes cache_times for ids still present in self.torrents.
+        self.cache_times = {}
 
     def create_status_dict(self, torrent_ids, keys):
         """

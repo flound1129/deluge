@@ -9,6 +9,7 @@
 import json
 import logging
 import os.path
+from collections import OrderedDict
 
 import gi  # isort:skip (Required before Gtk import).
 
@@ -45,6 +46,11 @@ CELL_PRIORITY_ICONS = {
 }
 
 G_ICON_DIRECTORY = Gio.content_type_get_icon('inode/directory')
+
+# Maximum number of torrents to keep file lists cached for. The lists are only
+# a render shortcut when reselecting a torrent, so evicting the least recently
+# viewed one simply costs a refetch of the 'files' status key.
+MAX_CACHED_FILE_LISTS = 20
 
 
 def cell_priority(column, cell, model, row, data):
@@ -207,8 +213,8 @@ class FilesTab(Tab):
         # Attempt to load state
         self.load_state()
 
-        # torrent_id: (filepath, size)
-        self.files_list = {}
+        # torrent_id: (filepath, size), least recently viewed torrent first
+        self.files_list = OrderedDict()
 
         self.torrent_id = None
 
@@ -216,6 +222,17 @@ class FilesTab(Tab):
         attr = 'hide' if not client.is_localhost() else 'show'
         for widget in self.localhost_widgets:
             getattr(widget, attr)()
+
+    def stop(self):
+        # The cached file lists belong to the session we are leaving.
+        self.files_list.clear()
+
+    def cache_files(self, torrent_id, files):
+        """Store a torrent's file list, evicting the least recently viewed."""
+        self.files_list[torrent_id] = files
+        self.files_list.move_to_end(torrent_id)
+        while len(self.files_list) > MAX_CACHED_FILE_LISTS:
+            self.files_list.popitem(last=False)
 
     def save_state(self):
         # Get the current sort order of the view
@@ -287,6 +304,7 @@ class FilesTab(Tab):
 
             if self.torrent_id in self.files_list:
                 # We already have the files list stored, so just update the view
+                self.files_list.move_to_end(self.torrent_id)
                 self.update_files()
 
         if (
@@ -463,7 +481,7 @@ class FilesTab(Tab):
             self.__is_seed = status['is_seed']
 
         if 'files' in status:
-            self.files_list[self.torrent_id] = status['files']
+            self.cache_files(self.torrent_id, status['files'])
             self.update_files()
 
         # (index, iter)

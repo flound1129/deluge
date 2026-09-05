@@ -110,6 +110,9 @@ class FilterTreeView(component.Component):
         # add Cat nodes:
         self.cat_nodes = {}
         self.filters = {}
+        # Filters that are always present and so are hidden rather than removed
+        # when the core stops reporting them.
+        self.permanent_filters = set()
 
     def start(self):
         self.cat_nodes = {}
@@ -134,6 +137,9 @@ class FilterTreeView(component.Component):
         self.update_row('owner', 'localclient', 0, _('Admin'))
         self.update_row('owner', '', 0, _('None'))
 
+        # Everything seeded above stays for the life of the connection.
+        self.permanent_filters = set(self.filters)
+
         # We set to this expand the rows on start-up
         self.expand_rows = True
 
@@ -141,6 +147,10 @@ class FilterTreeView(component.Component):
 
     def stop(self):
         self.treestore.clear()
+        # The iters held in these dicts point into the store just cleared.
+        self.cat_nodes = {}
+        self.filters = {}
+        self.permanent_filters = set()
 
     def create_model_filter(self):
         self.model_filter = self.treestore.filter_new()
@@ -159,11 +169,11 @@ class FilterTreeView(component.Component):
                 )
 
         # update rows
-        visible_filters = []
+        visible_filters = set()
         for cat, filters in filter_items.items():
             for value, count in filters:
                 self.update_row(cat, value, count)
-                visible_filters.append((cat, value))
+                visible_filters.add((cat, value))
 
         # hide root-categories not returned by core-part of the plugin.
         for cat in self.cat_nodes:
@@ -173,14 +183,24 @@ class FilterTreeView(component.Component):
                 True if cat in filter_items else False,
             )
 
-        # hide items not returned by core-plugin.
-        for f in self.filters:
-            if f not in visible_filters:
+        # Hide permanent items not returned by core-plugin. Everything else is
+        # removed outright, otherwise transient values (notably tracker hosts)
+        # accumulate a row and pixbuf each for the life of the connection.
+        for f in list(self.filters):
+            if f in visible_filters:
+                continue
+            if f in self.permanent_filters:
                 self.treestore.set_value(self.filters[f], FILTER_COLUMN, False)
+            else:
+                self.treestore.remove(self.filters.pop(f))
 
         if self.expand_rows:
             self.treeview.expand_all()
             self.expand_rows = False
+
+        if self.selected_path and not self.treeview.get_selection().get_selected()[1]:
+            # The selected row was one of those removed above.
+            self.selected_path = None
 
         if not self.selected_path:
             self.select_default_filter()

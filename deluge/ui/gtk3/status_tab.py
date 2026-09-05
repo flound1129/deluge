@@ -87,8 +87,9 @@ class StatusTab(Tab):
             self.clear()
             return
 
-        # Get the torrent status
-        status_keys = self.status_keys
+        # Get the torrent status. Copy the keys so the piecesbar additions
+        # below do not accumulate in self.status_keys on every update.
+        status_keys = list(self.status_keys)
         if self.config['show_piecesbar']:
             status_keys.extend(['pieces', 'num_pieces'])
 
@@ -145,8 +146,10 @@ class StatusTab(Tab):
     def hide_piecesbar(self):
         self.progressbar.show()
         if self.piecesbar:
-            self.piecesbar.hide()
             self.tab_widgets.pop('piecesbar', None)
+            # Destroy rather than hide, otherwise the widget stays packed in
+            # status_progress_vbox and show_piecesbar() packs another one.
+            self.piecesbar.destroy()
             self.piecesbar = None
 
     def clear(self):
