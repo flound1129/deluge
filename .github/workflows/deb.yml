@@ -100,8 +100,11 @@ jobs:
           name: debs-${{ matrix.distro }}-${{ matrix.version }}
           path: dist/*.deb
 
+  tests:
+    uses: ./.github/workflows/ci.yml
+
   publish:
-    needs: [setup, build-deb]
+    needs: [setup, build-deb, tests]
     runs-on: ubuntu-latest
     permissions:
       contents: write

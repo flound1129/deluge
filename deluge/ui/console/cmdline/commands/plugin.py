@@ -130,7 +130,9 @@ class Command(BaseCommand):
                     client.core.upload_plugin(filename, filedump)
                     client.core.rescan_plugins()
                 except Exception:
-                    log.warning('Failed to upload plugin to remote daemon: %s', filename)
+                    log.warning(
+                        'Failed to upload plugin to remote daemon: %s', filename
+                    )
                     self.console.write(
                         '{!error!}An error occurred, plugin was not installed'
                     )

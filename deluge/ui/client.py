@@ -656,7 +656,7 @@ class Client:
 
         """
         try:
-            subprocess.Popen(['deluged', f'--port={port}', f'--config={config}'])
+            subprocess.Popen(['squalld', f'--port={port}', f'--config={config}'])
         except OSError as ex:
             from errno import ENOENT
 

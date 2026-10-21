@@ -420,14 +420,15 @@ class TestCore(BaseTestCase):
         assert status['write_hit_ratio'] == 0.0
         assert status['read_hit_ratio'] == 0.0
 
-    def test_get_free_space(self):
-        space = self.core.get_free_space('.')
+    async def test_get_free_space(self):
+        space = await self.core.get_free_space('.')
         assert isinstance(space, int)
         assert space >= 0
-        assert self.core.get_free_space('/someinvalidpath') == -1
+        assert await self.core.get_free_space('/someinvalidpath') == -1
 
     @pytest.mark.flaky(reruns=3, reruns_delay=2)
     @pytest.mark.slow
+    @pytest.mark.internet
     def test_test_listen_port(self):
         d = self.core.test_listen_port()
 

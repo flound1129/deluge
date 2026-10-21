@@ -12,6 +12,7 @@ import glob
 import os
 import platform
 import sys
+
 try:
     from setuptools.command.build import build as _build
 except ModuleNotFoundError:

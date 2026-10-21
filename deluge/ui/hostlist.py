@@ -238,6 +238,7 @@ class HostList:
 
             for host_conn_info in host_conn_list:
                 if client.connected() and host_conn_info == client.connection_info():
+
                     def on_info(info, host_id):
                         log.debug('Client connected, query info: %s', info)
                         return host_id, 'Connected', info

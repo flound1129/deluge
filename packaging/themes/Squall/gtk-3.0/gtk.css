@@ -9,7 +9,7 @@
  */
 
 /* Import Adwaita dark as the base */
-@import url("resource:///org/gtk/libgtk/theme/Adwaita/gtk-contained-dark.css");
+@import url('resource:///org/gtk/libgtk/theme/Adwaita/gtk-contained-dark.css');
 
 /* Override Adwaita's accent palette */
 @define-color theme_selected_bg_color #098A93;
@@ -27,128 +27,128 @@
 /* Selection */
 *:selected,
 *:selected:focus {
-    background-color: #098A93;
-    color: #FFFFFF;
+    background-color: #098a93;
+    color: #ffffff;
 }
 
 treeview:selected,
 treeview:selected:focus,
 row:selected,
 row:selected:focus {
-    background-color: #098A93;
-    color: #FFFFFF;
+    background-color: #098a93;
+    color: #ffffff;
 }
 
 /* Checkboxes and radio buttons */
 check:checked,
 checkbutton check:checked {
-    background-image: image(#1EDFB2);
-    border-color: #1EDFB2;
-    color: #0F182C;
+    background-image: image(#1edfb2);
+    border-color: #1edfb2;
+    color: #0f182c;
 }
 
 check:checked:hover,
 checkbutton check:checked:hover {
-    background-image: image(#5DE9CB);
-    border-color: #5DE9CB;
+    background-image: image(#5de9cb);
+    border-color: #5de9cb;
 }
 
 radio:checked,
 radiobutton radio:checked {
-    background-image: image(#1EDFB2);
-    border-color: #1EDFB2;
-    color: #0F182C;
+    background-image: image(#1edfb2);
+    border-color: #1edfb2;
+    color: #0f182c;
 }
 
 radio:checked:hover,
 radiobutton radio:checked:hover {
-    background-image: image(#5DE9CB);
-    border-color: #5DE9CB;
+    background-image: image(#5de9cb);
+    border-color: #5de9cb;
 }
 
 /* Progress bars */
 progressbar > trough > progress {
     background-image: none;
-    background-color: #1EDFB2;
-    border-color: #098A93;
+    background-color: #1edfb2;
+    border-color: #098a93;
 }
 
 levelbar > trough > block.filled {
-    background-color: #1EDFB2;
-    border-color: #098A93;
+    background-color: #1edfb2;
+    border-color: #098a93;
 }
 
 /* Scale slider highlight */
 scale > trough > highlight {
-    background-color: #1EDFB2;
-    border-color: #098A93;
+    background-color: #1edfb2;
+    border-color: #098a93;
 }
 
 /* Switch */
 switch:checked {
-    background-image: image(#098A93);
-    border-color: #098A93;
+    background-image: image(#098a93);
+    border-color: #098a93;
 }
 
 switch:checked slider {
-    background-color: #1EDFB2;
-    border-color: #1EDFB2;
+    background-color: #1edfb2;
+    border-color: #1edfb2;
 }
 
 /* Suggested action buttons */
 button.suggested-action {
-    background-image: image(#098A93);
-    color: #FFFFFF;
-    border-color: #025A8A;
+    background-image: image(#098a93);
+    color: #ffffff;
+    border-color: #025a8a;
 }
 
 button.suggested-action:hover {
-    background-image: image(#1EDFB2);
-    color: #0F182C;
+    background-image: image(#1edfb2);
+    color: #0f182c;
 }
 
 /* Entry focus */
 entry:focus {
-    border-color: #1EDFB2;
-    box-shadow: inset 0 0 0 1px alpha(#1EDFB2, 0.3);
+    border-color: #1edfb2;
+    box-shadow: inset 0 0 0 1px alpha(#1edfb2, 0.3);
 }
 
 /* Notebook tab active indicator */
 notebook > header > tabs > tab:checked {
-    box-shadow: inset 0 -2px 0 0 #1EDFB2;
+    box-shadow: inset 0 -2px 0 0 #1edfb2;
 }
 
 /* Scrollbar */
 scrollbar slider:hover {
-    background-color: #098A93;
+    background-color: #098a93;
 }
 
 /* Links */
 *:link {
-    color: #1EDFB2;
+    color: #1edfb2;
 }
 
 *:link:hover {
-    color: #5DE9CB;
+    color: #5de9cb;
 }
 
 *:link:visited {
-    color: #0F6BB8;
+    color: #0f6bb8;
 }
 
 /* Menu hover */
 menu menuitem:hover {
-    background-color: #098A93;
-    color: #FFFFFF;
+    background-color: #098a93;
+    color: #ffffff;
 }
 
 /* Spinner */
 spinner {
-    color: #1EDFB2;
+    color: #1edfb2;
 }
 
 /* Spinbutton / combobox focus */
 spinbutton:focus,
 combobox button.combo:focus {
-    border-color: #1EDFB2;
+    border-color: #1edfb2;
 }

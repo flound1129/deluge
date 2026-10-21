@@ -61,8 +61,11 @@ def add_watchdog(deferred, timeout=0.05, message=None):
             deferred.cancel()
         return value
 
+    def on_timeout():
+        deferred.errback(defer.TimeoutError('Callback timed out'))
+
     deferred.addBoth(callback)
-    watchdog = reactor.callLater(timeout, defer.Deferred.addTimeout, deferred)
+    watchdog = reactor.callLater(timeout, on_timeout)
     return watchdog
 
 
@@ -279,7 +282,7 @@ except Exception:
     default_core_cb['triggers'] = [
         {'expr': 'Finished loading ', 'value': lambda reader, data, data_all: reader},
         {
-            'expr': 'Cannot start deluged, listen port in use.',
+            'expr': 'Cannot start squalld, listen port in use.',
             'type': 'errback',
             'value': lambda reader, data, data_all: CannotListenError(
                 'localhost',

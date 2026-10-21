@@ -11,12 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Web UI: HTML-encode tracker status, tracker host filter, download folder and owner. A malicious tracker's failure or warning message could run script in the Web UI session.
 - Web UI: require a login for `/upload`, which let anyone write files to the temp dir.
 - Web UI: set `HttpOnly`, `SameSite=Lax` and (over HTTPS) `Secure` on the session cookie, compare the password hash in constant time, and ignore an `X-Deluge-Base` header with unsafe characters.
-- Web UI: reject an expired session cookie on each request (the session cleaner never ran), and end all other sessions when the password changes.
+- Web UI: reject an expired session cookie on each request, start the session cleaner with the web server (it never ran), and end all other sessions when the password changes.
 - Web UI: do not write JSON request params to the debug log, because they can contain passwords. Keep `upload_plugin` file names inside the plugins dir.
 - Daemon: limit RPC message size (64 KiB before login, 256 MiB after) and decompressed size, so a client cannot exhaust memory with a large message or a zlib bomb.
-- Daemon: ignore `daemon.set_event_interest` before login. It could stop all event delivery.
+- Daemon: ignore `daemon.set_event_interest` before login. It could stop all event delivery. Event names must be strings; each session stores a name once, up to 256 names. A recipient that fails no longer stops delivery to other clients or to local event handlers.
 - Daemon: keep `upload_plugin` file names and `.torrent` copies inside their directories.
-- Daemon: write the `auth` file, its backup and `daemon.pkey` as owner-only, independent of the umask. An `auth` file that an older version left readable is made owner-only on load.
+- Daemon: write the `auth` file, its backup and `daemon.pkey` as owner-only, independent of the umask. `auth` and `auth.bak` are written to a new 0600 temp file and renamed into place, so they are never readable by others, and a symlink is never followed. An `auth` file that an older version left readable is made owner-only on load.
+- Daemon: an account change that cannot be saved now raises an error, and the account list in memory stays the same as the file. Before, the change was reported as done and could be lost or undone at restart.
 - Daemon: an account removed from the `auth` file can no longer log in after the file is reloaded.
 - HTTP downloads (torrent URLs, tracker pages and icons, blocklists) stop at 256 MiB of decoded data, so a hostile server cannot exhaust memory.
 - Daemon: generate the localclient password with `secrets` and compare plaintext passwords in constant time.
@@ -33,6 +34,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `SQUALLD_OPTS` and `DELUGE_WEB_OPTS` in `/etc/default/squall-*` are now passed to the services.
 - System services set `PYTHONNOUSERSITE=1`. logrotate rotates the daemon log as the daemon user.
 - CI: read-only workflow token by default, credentials not persisted, actions pinned to commit SHAs, weekly deb rebuild, pip upgraded in the venv.
+- CI: the deb workflow runs the test suite and only publishes a release when it passes. The test job limit is 30 minutes.
+- The debs no longer depend on the system `python3-libtorrent`. The venv bundles the libtorrent wheel.
+- `client.start_daemon` runs `squalld`, not `deluged`.
 
 ### Removed
 

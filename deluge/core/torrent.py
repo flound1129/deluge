@@ -696,7 +696,11 @@ class Torrent:
             self.set_status_message(decode_bytes(status_error))
         elif status.moving_storage:
             self.state = 'Moving'
-        elif not session_paused and _status_paused(status) and _status_auto_managed(status):
+        elif (
+            not session_paused
+            and _status_paused(status)
+            and _status_auto_managed(status)
+        ):
             self.state = 'Queued'
         elif session_paused or _status_paused(status):
             self.state = 'Paused'
@@ -750,7 +754,9 @@ class Torrent:
             flag=lt.torrent_flags.auto_managed,
             set_flag=False,
         )
-        self.forced_error = TorrentError(message, _status_paused(status), restart_to_resume)
+        self.forced_error = TorrentError(
+            message, _status_paused(status), restart_to_resume
+        )
         if not _status_paused(status):
             self.handle.pause()
         self.update_state()
@@ -1227,12 +1233,16 @@ class Torrent:
             'last_seen_complete': lambda: self.status.last_seen_complete,
             'name': self.get_name,
             'pieces': self._get_pieces_info,
-            'seed_mode': lambda: bool(self.status.flags & lt.torrent_flags.seed_mode)
-            if hasattr(lt.torrent_flags, 'seed_mode')
-            else getattr(self.status, 'seed_mode', False),
-            'super_seeding': lambda: bool(self.status.flags & lt.torrent_flags.super_seeding)
-            if hasattr(lt.torrent_flags, 'super_seeding')
-            else getattr(self.status, 'super_seeding', False),
+            'seed_mode': lambda: (
+                bool(self.status.flags & lt.torrent_flags.seed_mode)
+                if hasattr(lt.torrent_flags, 'seed_mode')
+                else getattr(self.status, 'seed_mode', False)
+            ),
+            'super_seeding': lambda: (
+                bool(self.status.flags & lt.torrent_flags.super_seeding)
+                if hasattr(lt.torrent_flags, 'super_seeding')
+                else getattr(self.status, 'super_seeding', False)
+            ),
             'time_since_download': lambda: self.status.time_since_download,
             'time_since_upload': lambda: self.status.time_since_upload,
             'time_since_transfer': self.get_time_since_transfer,
@@ -1476,7 +1486,8 @@ class Torrent:
         if delete_copies and self.filename:
             torrent_files.append(
                 os.path.join(
-                    self.config['torrentfiles_location'], os.path.basename(self.filename)
+                    self.config['torrentfiles_location'],
+                    os.path.basename(self.filename),
                 )
             )
 

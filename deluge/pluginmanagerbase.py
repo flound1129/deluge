@@ -116,7 +116,9 @@ def _read_egg_info(egg_info_dir):
             entry_points = _parse_entry_points_txt(f.read())
 
     location = os.path.dirname(egg_info_dir)
-    return _PluginDistribution(project_name, version, location, metadata_text, entry_points)
+    return _PluginDistribution(
+        project_name, version, location, metadata_text, entry_points
+    )
 
 
 def _read_egg_zip(egg_path):
@@ -172,7 +174,9 @@ def _read_egg_dir(egg_dir):
         with open(ep_path, encoding='utf-8') as f:
             entry_points = _parse_entry_points_txt(f.read())
 
-    return _PluginDistribution(project_name, version, egg_dir, metadata_text, entry_points)
+    return _PluginDistribution(
+        project_name, version, egg_dir, metadata_text, entry_points
+    )
 
 
 def _scan_plugin_dirs(dirs):
@@ -220,7 +224,9 @@ def _scan_plugin_dirs(dirs):
                                     break
 
             if dist and dist.project_name:
-                norm_name = dist.project_name.lower().replace('-', ' ').replace('_', ' ')
+                norm_name = (
+                    dist.project_name.lower().replace('-', ' ').replace('_', ' ')
+                )
                 if norm_name not in found:
                     found[norm_name] = []
                 found[norm_name].append(dist)

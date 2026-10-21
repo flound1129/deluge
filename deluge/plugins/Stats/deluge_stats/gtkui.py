@@ -277,7 +277,9 @@ class GtkUI(Gtk3PluginBase):
                 try:
                     gtkconf[graph][value] = color_btn.get_color().to_string()
                 except Exception:
-                    log.debug('Failed to get color for %s %s, using default', graph, value)
+                    log.debug(
+                        'Failed to get color for %s %s, using default', graph, value
+                    )
                     gtkconf[graph][value] = DEFAULT_CONF['colors'][graph][value]
         self.config['colors'] = gtkconf
         self.graphs_tab.set_colors(self.config['colors'])

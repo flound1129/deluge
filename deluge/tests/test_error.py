@@ -22,7 +22,7 @@ class TestError:
         version = '1.3.6'
         e = deluge.error.IncompatibleClient(version)
         assert (
-            str(e) == 'Your deluge client is not compatible with the daemon. '
+            str(e) == 'Your Squall client is not compatible with the daemon. '
             'Please upgrade your client to %s' % version
         )
 
