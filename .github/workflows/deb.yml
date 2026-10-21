@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
   # Weekly rebuild so the bundled Python dependencies pick up security fixes.
   schedule:
-    - cron: '23 6 * * 1'
+    - cron: "23 6 * * 1"
 
 permissions:
   contents: read

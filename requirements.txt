@@ -1,11 +1,12 @@
 setuptools
-libtorrent>=2.0.15
+libtorrent>=2.0.15,<2.1
 twisted[tls]>=18.7
 rencode>=1.0.7
 pyopenssl
 cryptography
 pyxdg
-pillow>=13.0.0
+pillow>=13.0.0; python_version >= '3.11'
+pillow; python_version < '3.11'
 mako
 chardet
 setproctitle

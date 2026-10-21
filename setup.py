@@ -542,7 +542,8 @@ install_requires = [
 extras_require = {
     'all': [
         'setproctitle',
-        'pillow>=13.0.0',
+        "pillow>=13.0.0; python_version >= '3.11'",
+        "pillow; python_version < '3.11'",
         'chardet',
         'ifaddr',
     ]

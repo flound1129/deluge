@@ -24,7 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Tracker icons: only decode ICO, PNG, GIF, JPEG and BMP with Pillow. GTK UI: escape tracker status before Pango markup.
 - Notifications: refuse to send the SMTP password when TLS is enabled but the server does not offer STARTTLS, and verify the server certificate.
 - Skipping a file now only deletes it if it was wanted before and is incomplete. Complete files are no longer deleted.
-- Require libtorrent >= 2.0.15, Pillow >= 13.0.0, Twisted >= 18.7 and rencode >= 1.0.7 (CVE-2021-40839).
+- Require libtorrent >= 2.0.15 and < 2.1, Pillow >= 13.0.0 (on Python >= 3.11), Twisted >= 18.7 and rencode >= 1.0.7 (CVE-2021-40839).
 - Generate the daemon TLS key and certificate with `cryptography`. pyOpenSSL 26.3 removed `X509Req`, so a new install could not start `squalld`.
 
 ### Packaging

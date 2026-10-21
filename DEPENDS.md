@@ -27,7 +27,7 @@ All modules will require the [common](#common) section dependencies.
 - [zope.interface]
 - [chardet] - Optional: Encoding detection.
 - [setproctitle] - Optional: Renaming processes.
-- [Pillow] _>= 13.0.0_ - Optional: Support for resizing tracker icons.
+- [Pillow] _>= 13.0.0_ - Optional: Support for resizing tracker icons. Pillow 13 needs Python >= 3.11; Python 3.10 gets an older Pillow without the 13.0.0 security fixes.
 - [dbus-python] - Optional: Show item location in filemanager.
 - [ifaddr] - Optional: Verify network interfaces.
 
@@ -42,7 +42,7 @@ All modules will require the [common](#common) section dependencies.
 
 ## Core (deluged daemon)
 
-- [libtorrent] _>= 1.2.0_ - Use _>= 2.0.15_ for fixes to bugs that remote peers can trigger.
+- [libtorrent] _>= 1.2.0_ - Use _>= 2.0.15_ for fixes to bugs that remote peers can trigger. The 2.1 series is not tested with Squall, and 2.1.1 was released before the 2.0.15 merkle tree fixes.
 - [GeoIP] or [pygeoip] - Optional: IP address country lookup. (_Debian: `python-geoip`_)
 
 ## GTK UI
