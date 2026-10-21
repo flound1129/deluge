@@ -20,7 +20,18 @@ override_dh_virtualenv:
 	dh_virtualenv \
 		--install-suffix deluge \
 		--use-system-packages \
+		--upgrade-pip \
 		--package squall-common
+
+# User units are opt-in per user (systemctl --user enable), never global.
+override_dh_installsystemduser:
+	dh_installsystemduser --no-enable
+
+# The web UI listens on all interfaces with a default password, so the admin
+# must enable it. deb-systemd-invoke still restarts it on upgrade if running.
+override_dh_installsystemd:
+	dh_installsystemd -psquall-web --no-enable
+	dh_installsystemd --remaining-packages
 
 execute_before_dh_install:
 	# Generate desktop file from template (strip intltool underscore prefixes)

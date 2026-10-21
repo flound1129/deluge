@@ -1,10 +1,11 @@
 setuptools
-libtorrent
-twisted[tls]>=17.1
-rencode
+libtorrent>=2.0.15
+twisted[tls]>=18.7
+rencode>=1.0.7
 pyopenssl
+cryptography
 pyxdg
-pillow
+pillow>=13.0.0
 mako
 chardet
 setproctitle

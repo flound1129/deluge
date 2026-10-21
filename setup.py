@@ -529,9 +529,10 @@ _package_data['deluge.ui.web'] = [
 _package_data['deluge.ui.gtk3'] = ['glade/*.ui']
 
 install_requires = [
-    'twisted[tls]>=17.1',
-    'rencode',
+    'twisted[tls]>=18.7',
+    'rencode>=1.0.7',
     'pyopenssl',
+    'cryptography',
     'pyxdg',
     'mako',
     "pywin32; sys_platform == 'win32'",
@@ -541,7 +542,7 @@ install_requires = [
 extras_require = {
     'all': [
         'setproctitle',
-        'pillow',
+        'pillow>=13.0.0',
         'chardet',
         'ifaddr',
     ]

@@ -124,6 +124,28 @@ class TestTorrent(BaseTestCase):
         result = all(p in piece_prio for p in [3, 2, 0, 5, 6, 7])
         assert result
 
+    def test_set_file_priorities_skip_keeps_complete_files(self, tmp_path):
+        atp = self.get_torrent_atp('dir_with_6_files.torrent')
+        atp['save_path'] = str(tmp_path)
+        atp['flags'] = lt.torrent_flags.paused
+        handle = self.session.add_torrent(atp)
+        torrent = Torrent(handle, {'download_location': str(tmp_path)})
+        torrent.set_file_priorities([4] * 7)
+
+        files = handle.torrent_file().files()
+        complete = tmp_path / files.file_path(0)
+        partial = tmp_path / files.file_path(1)
+        complete.parent.mkdir(parents=True, exist_ok=True)
+        complete.write_bytes(b'x' * files.file_size(0))
+        partial.write_bytes(b'x' * 100)
+
+        torrent.handle = mock.Mock(wraps=handle)
+        torrent.handle.file_progress.return_value = [files.file_size(0), 100] + [0] * 5
+        torrent.set_file_priorities([0, 0, 4, 4, 4, 4, 4])
+
+        assert complete.exists()
+        assert not partial.exists()
+
     @pytest.mark.flaky(reruns=3, reruns_delay=2)
     def test_set_prioritize_first_last_pieces(self):
         piece_indexes = [

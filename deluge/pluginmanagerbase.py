@@ -211,8 +211,6 @@ def _scan_plugin_dirs(dirs):
                 if lines:
                     source_dir = lines[0].strip()
                     if os.path.isdir(source_dir):
-                        if source_dir not in sys.path:
-                            sys.path.insert(0, source_dir)
                         # Look for .egg-info dirs inside the source directory
                         for sub in os.listdir(source_dir):
                             sub_path = os.path.join(source_dir, sub)
@@ -331,9 +329,6 @@ class PluginManagerBase:
     def scan_for_plugins(self) -> None:
         """Scan plugin_dirs for available plugins."""
         str_dirs = [str(d) for d in self.plugin_dirs]
-        for dirname in str_dirs:
-            if os.path.isdir(dirname) and dirname not in sys.path:
-                sys.path.insert(0, dirname)
         self.pkg_env = _PluginEnvironment(_scan_plugin_dirs(str_dirs))
 
         self.available_plugins = []
@@ -374,9 +369,10 @@ class PluginManagerBase:
             log.warning('Cannot find distribution for plugin %s', plugin_name)
             return defer.succeed(False)
         egg = dists[0]
-        # Ensure the plugin location is importable
+        # Ensure the plugin location is importable. Append rather than prepend
+        # so files in a writable plugin dir cannot shadow other modules.
         if egg.location not in sys.path:
-            sys.path.insert(0, egg.location)
+            sys.path.append(egg.location)
         return_d = defer.succeed(True)
 
         for name in egg.get_entry_map(self.entry_name):

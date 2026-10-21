@@ -1117,6 +1117,8 @@ class Core(component.Component):
             log.exception(ex)
             return
 
+        # Only a file name is valid here; never let it point outside the plugins dir.
+        filename = os.path.basename(filename)
         with open(os.path.join(get_config_dir(), 'plugins', filename), 'wb') as _file:
             _file.write(filedump)
         component.get('CorePluginManager').scan_for_plugins()

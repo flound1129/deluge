@@ -106,3 +106,36 @@ class TestRPCServer(BaseTestCase):
         assert msg[0] == rpcserver.RPC_RESPONSE, str(msg)
         assert msg[1] == self.request_id, str(msg)
         assert msg[2] == deluge.common.get_version(), str(msg)
+
+    def test_set_event_interest_requires_login(self):
+        del self.factory.session_protocols[self.session_id]
+        self.factory.authorized_sessions[self.session_id] = self.protocol.AuthLevel(
+            rpcserver.AUTH_LEVEL_NONE, ''
+        )
+        self.factory.interested_events.clear()
+        self.protocol.dispatch(
+            self.request_id,
+            'daemon.set_event_interest',
+            [['TorrentFolderRenamedEvent']],
+            {},
+        )
+        assert self.session_id not in self.factory.interested_events
+
+    def test_emit_event_skips_session_without_protocol(self):
+        from deluge.event import TorrentFolderRenamedEvent
+
+        del self.factory.session_protocols[self.session_id]
+        self.rpcserver.emit_event(TorrentFolderRenamedEvent('12', 'new', 'old'))
+
+    def test_max_message_size_before_and_after_login(self):
+        self.factory.authorized_sessions[self.session_id] = self.protocol.AuthLevel(
+            rpcserver.AUTH_LEVEL_NONE, ''
+        )
+        assert (
+            self.protocol.max_message_size()
+            == rpcserver.MAX_UNAUTHENTICATED_MESSAGE_SIZE
+        )
+        self.factory.authorized_sessions[self.session_id] = self.protocol.AuthLevel(
+            rpcserver.AUTH_LEVEL_ADMIN, 'localclient'
+        )
+        assert self.protocol.max_message_size() == rpcserver.MAX_MESSAGE_SIZE

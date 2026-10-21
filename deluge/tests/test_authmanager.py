@@ -13,6 +13,7 @@ from deluge.common import (
     AUTH_LEVEL_ADMIN,
     AUTH_LEVEL_NORMAL,
     get_localhost_auth,
+    windows_check,
 )
 from deluge.configmanager import get_config_dir
 from deluge.conftest import BaseTestCase
@@ -119,3 +120,39 @@ class TestAuthManager(BaseTestCase):
         add_user_to_authfile('test', 'testpass', 'NORMAL')
 
         assert self.auth.authorize('test', 'testpass') == AUTH_LEVEL_NORMAL
+
+    def test_account_removed_from_file_is_dropped(self, add_user_to_authfile):
+        add_user_to_authfile('test', 'testpass', 'NORMAL')
+        assert self.auth.authorize('test', 'testpass') == AUTH_LEVEL_NORMAL
+
+        auth_file = get_config_dir('auth')
+        with open(auth_file) as file:
+            lines = [line for line in file if not line.startswith('test:')]
+        with open(auth_file, 'w') as file:
+            file.writelines(lines)
+        stat = os.stat(auth_file)
+        os.utime(auth_file, ns=(stat.st_atime_ns, stat.st_mtime_ns + 2000))
+
+        self.auth.update()
+        assert not self.auth.has_account('test')
+        with pytest.raises(BadLoginError):
+            self.auth.authorize('test', 'testpass')
+
+    @pytest.mark.skipif(windows_check(), reason='POSIX file modes')
+    def test_auth_files_stay_private(self):
+        old_umask = os.umask(0o022)
+        try:
+            self.auth.create_account('test', 'testpass', 'ADMIN')
+            self.auth.update_account('test', 'newpass', 'NORMAL')
+        finally:
+            os.umask(old_umask)
+        auth_file = get_config_dir('auth')
+        for path in (auth_file, auth_file + '.bak'):
+            assert os.stat(path).st_mode & 0o777 == 0o600
+
+        # A file left readable by an older version is made private on reload.
+        os.chmod(auth_file, 0o644)
+        stat = os.stat(auth_file)
+        os.utime(auth_file, ns=(stat.st_atime_ns, stat.st_mtime_ns + 2000))
+        self.auth.update()
+        assert os.stat(auth_file).st_mode & 0o777 == 0o600

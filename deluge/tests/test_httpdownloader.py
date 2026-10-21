@@ -7,6 +7,7 @@
 import os
 import tempfile
 from email.utils import formatdate
+from unittest import mock
 
 import pytest
 import pytest_twisted
@@ -18,7 +19,8 @@ from twisted.web.resource import EncodingResourceWrapper, Resource
 from twisted.web.server import GzipEncoderFactory, Site
 from twisted.web.util import redirectTo
 
-from deluge.httpdownloader import download_file
+from deluge import httpdownloader
+from deluge.httpdownloader import DownloadTooLargeError, download_file
 from deluge.log import setup_logger
 
 temp_dir = tempfile.mkdtemp()
@@ -234,6 +236,19 @@ class TestDownloadFile:
             url, fname('gzip_encoded'), allow_compression=False
         )
         self.assert_contains(filename, 'unzip')
+
+    async def test_download_too_large(self):
+        with mock.patch.object(httpdownloader, 'MAX_DOWNLOAD_SIZE', 10):
+            with pytest.raises(DownloadTooLargeError):
+                await download_file(self.get_url(), fname('too_large'))
+        assert not os.path.exists(fname('too_large'))
+
+    async def test_download_too_large_after_gzip_decoding(self):
+        url = self.get_url('gzip?msg=' + 'A' * 1000)
+        with mock.patch.object(httpdownloader, 'MAX_DOWNLOAD_SIZE', 500):
+            with pytest.raises(DownloadTooLargeError):
+                await download_file(url, fname('too_large_gzip'))
+        assert not os.path.exists(fname('too_large_gzip'))
 
     async def test_page_redirect_unhandled(self):
         url = self.get_url('redirect')

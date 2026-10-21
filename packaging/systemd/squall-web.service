@@ -10,8 +10,11 @@ User=debian-squall-web
 Group=debian-squall-web
 UMask=027
 
+# Keep ~/.local site-packages under the writable state dir off sys.path.
+Environment=PYTHONNOUSERSITE=1
+
 EnvironmentFile=-/etc/default/squall-web
-ExecStart=/usr/bin/squall-web -d
+ExecStart=/usr/bin/squall-web -d $DELUGE_WEB_OPTS
 
 Restart=on-failure
 

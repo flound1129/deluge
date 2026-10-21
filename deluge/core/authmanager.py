@@ -7,6 +7,7 @@
 # See LICENSE for more details.
 #
 
+import hmac
 import logging
 import os
 import shutil
@@ -133,7 +134,9 @@ class AuthManager(component.Component):
         """Verifies a user's password either as hash or plaintext."""
         if username == 'localclient':
             # Plaintext validation to maintain localclient autologin compatibility
-            return stored_password == password
+            return hmac.compare_digest(
+                stored_password.encode('utf8'), (password or '').encode('utf8')
+            )
 
         try:
             return check_password_hash(stored_password, password)
@@ -143,7 +146,9 @@ class AuthManager(component.Component):
                 username,
                 ex.method,
             )
-            return stored_password == password
+            return hmac.compare_digest(
+                stored_password.encode('utf8'), (password or '').encode('utf8')
+            )
 
     def has_account(self, username: str) -> bool:
         return username in self.__auth
@@ -212,12 +217,20 @@ class AuthManager(component.Component):
             if os.path.isfile(filepath):
                 log.debug('Creating backup of %s at: %s', filename, filepath_bak)
                 _ = shutil.copy2(filepath, filepath_bak)
+                os.chmod(filepath_bak, 0o600)
         except OSError as ex:
             log.error('Unable to backup %s to %s: %s', filepath, filepath_bak, ex)
         else:
             log.info('Saving the %s at: %s', filename, filepath)
             try:
-                with open(filepath_tmp, 'w', encoding='utf8') as _file:
+                # The file holds plaintext passwords, so never take the mode from the umask.
+                with open(
+                    filepath_tmp,
+                    'w',
+                    encoding='utf8',
+                    opener=lambda path, flags: os.open(path, flags, 0o600),
+                ) as _file:
+                    os.chmod(filepath_tmp, 0o600)
                     for account in self.__auth.values():
                         _ = _file.write(
                             '%(username)s:%(password)s:%(authlevel_int)s\n'
@@ -263,8 +276,22 @@ class AuthManager(component.Component):
             else:
                 log.info('Successfully loaded %s: %s', filename, _filepath)
                 break
+        else:
+            if self.__auth:
+                # Keep the current accounts; the next update tries again.
+                return
 
-        # Load the auth file into a dictionary: {username: Account(...)}
+        # Older versions rewrote these files with the umask mode, so make them private.
+        for _filepath in (auth_file, auth_file_bak):
+            try:
+                if os.stat(_filepath).st_mode & 0o077:
+                    os.chmod(_filepath, 0o600)
+            except OSError:
+                pass
+
+        # Load the auth file into a new dictionary: {username: Account(...)}, so
+        # accounts removed from the file are removed from memory too.
+        accounts = {}
         for line in file_data:
             line = line.strip()
             if line.startswith('#') or not line:
@@ -304,12 +331,13 @@ class AuthManager(component.Component):
                     )
                     continue
 
-            self.__auth[username] = Account(username, password, authlevel)
+            accounts[username] = Account(username, password, authlevel)
 
-        if 'localclient' not in self.__auth:
+        if 'localclient' not in accounts:
             _ = create_localclient_account(True)
             return self.__load_auth_file()
 
+        self.__auth = accounts
         if save_and_reload:
             log.info('Re-writing auth file (upgrade)')
             self.write_auth_file()

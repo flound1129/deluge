@@ -149,6 +149,8 @@ class JSON(resource.Resource, component.Component):
             )
             raise JSONException(message)
 
+        # Params are not logged: login, change_password, add_host and others carry passwords.
+        log.debug('json-request: %s (id %s)', method, request_id)
         result = None
         error = None
 
@@ -198,7 +200,6 @@ class JSON(resource.Resource, component.Component):
             message = 'Invalid JSON request content-type: %s' % content_type
             raise JSONException(message)
 
-        log.debug('json-request: %s', request.json)
         response = {'result': None, 'error': None, 'id': None}
         response['id'], d, response['error'] = self._handle_request(request)
 
@@ -902,6 +903,8 @@ class WebApi(JSONComponent):
         """Upload a plugin to config."""
         main_deferred = Deferred()
 
+        # Only a file name is valid here; never let it point outside the plugins dir.
+        filename = os.path.basename(filename)
         shutil.copyfile(path, os.path.join(get_config_dir(), 'plugins', filename))
         component.get('Web.PluginManager').scan_for_plugins()
 

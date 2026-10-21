@@ -11,6 +11,7 @@ import json
 import logging
 import mimetypes
 import os
+import string
 import tempfile
 from pathlib import Path
 
@@ -75,6 +76,11 @@ def rpath(*paths):
     return common.resource_filename('deluge.ui.web', os.path.join(*paths))
 
 
+# The request base is copied into HTML and cookie paths, so a base from the
+# X-Deluge-Base header may only hold plain URL path characters.
+SAFE_BASE_CHARS = frozenset(string.ascii_letters + string.digits + '/-._~')
+
+
 def absolute_base_url(base):
     """Returns base as absolute URL for links"""
     if not base:
@@ -123,6 +129,13 @@ class Upload(resource.Resource):
         # Block all other HTTP methods.
         if request.method != b'POST':
             request.setResponseCode(http.NOT_ALLOWED)
+            request.finish()
+            return server.NOT_DONE_YET
+
+        try:
+            component.get('Auth').check_request(request, level=AUTH_LEVEL_DEFAULT)
+        except NotAuthorizedError:
+            request.setResponseCode(http.UNAUTHORIZED)
             request.finish()
             return server.NOT_DONE_YET
 
@@ -615,6 +628,9 @@ class TopLevel(resource.Resource):
     def getChildWithDefault(self, path, request):  # NOQA: N802
         # Calculate the request base
         header = request.getHeader('x-deluge-base')
+        if header and not SAFE_BASE_CHARS.issuperset(header):
+            log.warning('Ignoring X-Deluge-Base header with unsafe characters')
+            header = None
         config_base = component.get('DelugeWeb').base
         base = header if header else config_base
 

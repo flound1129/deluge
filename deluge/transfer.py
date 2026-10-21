@@ -19,6 +19,9 @@ log = logging.getLogger(__name__)
 PROTOCOL_VERSION = 1
 MESSAGE_HEADER_FORMAT = '!BI'
 MESSAGE_HEADER_SIZE = struct.calcsize(MESSAGE_HEADER_FORMAT)
+# Largest message body accepted from a peer, both as sent and once decompressed,
+# so a peer cannot make us buffer or inflate (zlib can expand ~1000x) without limit.
+MAX_MESSAGE_SIZE = 256 * 1024 * 1024
 
 
 class SquallTransferProtocol(Protocol):
@@ -43,6 +46,11 @@ class SquallTransferProtocol(Protocol):
         self._message_length = 0
         self._bytes_received = 0
         self._bytes_sent = 0
+        self._dropped = False
+
+    def max_message_size(self):
+        """Returns the largest message body accepted from the peer."""
+        return MAX_MESSAGE_SIZE
 
     def transfer_message(self, data):
         """
@@ -73,12 +81,16 @@ class SquallTransferProtocol(Protocol):
             _message_length - the length of the payload of the current message.
 
         """
+        if self._dropped:
+            return
         self._buffer += data
         self._bytes_received += len(data)
 
         while len(self._buffer) >= MESSAGE_HEADER_SIZE:
             if self._message_length == 0:
                 self._handle_new_message()
+                if self._dropped:
+                    return
             # We have a complete packet
             if len(self._buffer) >= self._message_length:
                 self._handle_complete_message(self._buffer[: self._message_length])
@@ -114,6 +126,18 @@ class SquallTransferProtocol(Protocol):
             )
             self._message_length = 0
             self._buffer = b''
+            return
+
+        if self._message_length > self.max_message_size():
+            log.warning(
+                'Dropping connection: message of %d bytes exceeds the %d byte limit.',
+                self._message_length,
+                self.max_message_size(),
+            )
+            self._dropped = True
+            self._message_length = 0
+            self._buffer = b''
+            self.transport.loseConnection()
 
     def _handle_complete_message(self, data):
         """
@@ -123,9 +147,11 @@ class SquallTransferProtocol(Protocol):
 
         """
         try:
-            self.message_received(
-                rencode.loads(zlib.decompress(data), decode_utf8=True)
-            )
+            decompressor = zlib.decompressobj()
+            body = decompressor.decompress(data, self.max_message_size())
+            if not decompressor.eof:
+                raise ValueError('message is truncated or exceeds the size limit')
+            self.message_received(rencode.loads(body, decode_utf8=True))
         except Exception as ex:
             log.warning(
                 'Failed to decompress (%d bytes) and load serialized data with rencode: %s',

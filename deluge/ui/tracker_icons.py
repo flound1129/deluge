@@ -31,6 +31,10 @@ try:
 except ImportError:
     Image = None
 
+# Icons come from untrusted tracker hosts, so only let Pillow use the decoders
+# for formats in MIME_MAP (BMP is common inside ico files).
+PIL_ICON_FORMATS = ('ICO', 'PNG', 'GIF', 'JPEG', 'BMP')
+
 log = logging.getLogger(__name__)
 
 
@@ -379,7 +383,7 @@ class TrackerIcons(Component):
 
         if Image:
             try:
-                with Image.open(icon_name):
+                with Image.open(icon_name, formats=PIL_ICON_FORMATS):
                     pass
             except OSError as ex:
                 raise InvalidIconError(ex)
@@ -461,7 +465,7 @@ class TrackerIcons(Component):
         # Requires Pillow(PIL) to resize.
         if icon and Image:
             filename = icon.get_filename()
-            with Image.open(filename) as img:
+            with Image.open(filename, formats=PIL_ICON_FORMATS) as img:
                 new_filename = os.path.splitext(filename)[0] + '.png'
                 if img.size > (16, 16):
                     img = img.resize((16, 16), Image.Resampling.LANCZOS)

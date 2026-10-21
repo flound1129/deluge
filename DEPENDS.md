@@ -17,16 +17,17 @@ All modules will require the [common](#common) section dependencies.
 
 ## Common
 
-- [Twisted] _>= 17.1_ - Use `TLS` extras for `service_identity` and `idna`.
+- [Twisted] _>= 18.7_ - Use `TLS` extras for `service_identity` and `idna`.
 - [OpenSSL] _>= 1.0.1_
 - [pyOpenSSL]
-- [rencode] _>= 1.0.2_ - Encoding library.
+- [cryptography] - Generates the daemon TLS key and certificate.
+- [rencode] _>= 1.0.7_ - Encoding library.
 - [PyXDG] - Access freedesktop.org standards for \*nix.
 - [xdg-utils] - Provides xdg-open for \*nix.
 - [zope.interface]
 - [chardet] - Optional: Encoding detection.
 - [setproctitle] - Optional: Renaming processes.
-- [Pillow] - Optional: Support for resizing tracker icons.
+- [Pillow] _>= 13.0.0_ - Optional: Support for resizing tracker icons.
 - [dbus-python] - Optional: Show item location in filemanager.
 - [ifaddr] - Optional: Verify network interfaces.
 
@@ -41,7 +42,7 @@ All modules will require the [common](#common) section dependencies.
 
 ## Core (deluged daemon)
 
-- [libtorrent] _>= 1.2.0_
+- [libtorrent] _>= 1.2.0_ - Use _>= 2.0.15_ for fixes to bugs that remote peers can trigger.
 - [GeoIP] or [pygeoip] - Optional: IP address country lookup. (_Debian: `python-geoip`_)
 
 ## GTK UI
@@ -74,6 +75,7 @@ All modules will require the [common](#common) section dependencies.
 [rjsmin]: https://pypi.org/project/rjsmin/
 [openssl]: https://www.openssl.org/
 [pyopenssl]: https://pyopenssl.org
+[cryptography]: https://cryptography.io
 [twisted]: https://twistedmatrix.com
 [pillow]: https://pypi.org/project/Pillow/
 [libtorrent]: https://libtorrent.org/

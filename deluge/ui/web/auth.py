@@ -7,6 +7,7 @@
 #
 
 import hashlib
+import hmac
 import logging
 import os
 import time
@@ -104,12 +105,16 @@ class Auth(JSONComponent):
             session_id + checksum,
             path=request.base,
             expires=expires_str,
+            secure=request.isSecure(),
+            httpOnly=True,
+            sameSite='lax',
         )
 
         log.debug('Creating session for %s', login)
 
         if isinstance(self.config['sessions'], list):
             self.config['sessions'] = {}
+        self._clean_sessions()
 
         self.config['sessions'][session_id] = {
             'login': login,
@@ -127,7 +132,7 @@ class Auth(JSONComponent):
         s = hashlib.sha1()
         s.update(config['pwd_salt'].encode('utf8'))
         s.update(password.encode('utf8'))
-        return s.hexdigest() == config['pwd_sha1']
+        return hmac.compare_digest(s.hexdigest(), config['pwd_sha1'])
 
     def check_request(self, request, method=None, level=None):
         """
@@ -149,6 +154,14 @@ class Auth(JSONComponent):
         else:
             session_id = None
 
+        # The web server does not start this component, so _clean_sessions never
+        # runs. Check expiry here, before the session is renewed.
+        if (
+            session_id in self.config['sessions']
+            and self.config['sessions'][session_id].get('expires', 0) < time.time()
+        ):
+            del self.config['sessions'][session_id]
+
         if session_id not in self.config['sessions']:
             auth_level = AUTH_LEVEL_NONE
             session_id = None
@@ -164,6 +177,9 @@ class Auth(JSONComponent):
                 _session_id,
                 path=request.base,
                 expires=expires_str,
+                secure=request.isSecure(),
+                httpOnly=True,
+                sameSite='lax',
             )
 
         if method:
@@ -213,6 +229,10 @@ class Auth(JSONComponent):
         """
         if not self.check_password(old_password):
             return False
+        # Keep only the caller's session, so an old or stolen cookie stops working.
+        for session_id in list(self.config['sessions']):
+            if session_id != __request__.session_id:
+                del self.config['sessions'][session_id]
         return self._change_password(new_password)
 
     @export(AUTH_LEVEL_NONE)

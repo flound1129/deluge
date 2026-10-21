@@ -558,12 +558,16 @@ class Torrent:
         # Remove any partial files that were written for files now being skipped.
         # Boundary pieces for adjacent wanted files can leave corrupt partial data
         # on disk for skipped files; delete them so they don't appear as corrupt files.
-        if 0 in file_priorities:
+        # Only delete files this torrent was downloading and has not completed, so
+        # complete files and files not known to be ours are never deleted.
+        if 0 in file_priorities and prev_priorities:
             ti = self.torrent_info
             save_path = self.options['download_location']
+            file_progress = self.handle.file_progress()
             for index, priority in enumerate(file_priorities):
-                was_not_skipped = not prev_priorities or prev_priorities[index] != 0
-                if priority == 0 and was_not_skipped:
+                if priority != 0 or prev_priorities[index] == 0:
+                    continue
+                if file_progress[index] < ti.files().file_size(index):
                     file_path = os.path.join(save_path, ti.file_at(index).path)
                     if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
                         log.debug('Removing partial skipped file: %s', file_path)
@@ -1458,7 +1462,10 @@ class Torrent:
         if self.config['copy_torrent_file']:
             if not self.filename:
                 self.filename = self.get_name() + '.torrent'
-            filepath = os.path.join(self.config['torrentfiles_location'], self.filename)
+            # The filename comes from the client, so keep the copy inside torrentfiles_location.
+            filepath = os.path.join(
+                self.config['torrentfiles_location'], os.path.basename(self.filename)
+            )
             write_file(filepath, filedump)
 
     def delete_torrentfile(self, delete_copies=False):
@@ -1468,7 +1475,9 @@ class Torrent:
         ]
         if delete_copies and self.filename:
             torrent_files.append(
-                os.path.join(self.config['torrentfiles_location'], self.filename)
+                os.path.join(
+                    self.config['torrentfiles_location'], os.path.basename(self.filename)
+                )
             )
 
         for torrent_file in torrent_files:

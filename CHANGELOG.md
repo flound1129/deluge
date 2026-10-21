@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Security
+
+- Web UI: HTML-encode tracker status, tracker host filter, download folder and owner. A malicious tracker's failure or warning message could run script in the Web UI session.
+- Web UI: require a login for `/upload`, which let anyone write files to the temp dir.
+- Web UI: set `HttpOnly`, `SameSite=Lax` and (over HTTPS) `Secure` on the session cookie, compare the password hash in constant time, and ignore an `X-Deluge-Base` header with unsafe characters.
+- Web UI: reject an expired session cookie on each request (the session cleaner never ran), and end all other sessions when the password changes.
+- Web UI: do not write JSON request params to the debug log, because they can contain passwords. Keep `upload_plugin` file names inside the plugins dir.
+- Daemon: limit RPC message size (64 KiB before login, 256 MiB after) and decompressed size, so a client cannot exhaust memory with a large message or a zlib bomb.
+- Daemon: ignore `daemon.set_event_interest` before login. It could stop all event delivery.
+- Daemon: keep `upload_plugin` file names and `.torrent` copies inside their directories.
+- Daemon: write the `auth` file, its backup and `daemon.pkey` as owner-only, independent of the umask. An `auth` file that an older version left readable is made owner-only on load.
+- Daemon: an account removed from the `auth` file can no longer log in after the file is reloaded.
+- HTTP downloads (torrent URLs, tracker pages and icons, blocklists) stop at 256 MiB of decoded data, so a hostile server cannot exhaust memory.
+- Daemon: generate the localclient password with `secrets` and compare plaintext passwords in constant time.
+- Plugins are no longer put at the front of `sys.path`, so files in a writable plugin dir cannot shadow other modules.
+- Tracker icons: only decode ICO, PNG, GIF, JPEG and BMP with Pillow. GTK UI: escape tracker status before Pango markup.
+- Notifications: refuse to send the SMTP password when TLS is enabled but the server does not offer STARTTLS, and verify the server certificate.
+- Skipping a file now only deletes it if it was wanted before and is incomplete. Complete files are no longer deleted.
+- Require libtorrent >= 2.0.15, Pillow >= 13.0.0, Twisted >= 18.7 and rencode >= 1.0.7 (CVE-2021-40839).
+- Generate the daemon TLS key and certificate with `cryptography`. pyOpenSSL 26.3 removed `X509Req`, so a new install could not start `squalld`.
+
+### Packaging
+
+- The deb no longer enables the user `squalld`/`squall-web` units for all users, and no longer enables or starts the system `squall-web` service on install. Enable them explicitly.
+- `SQUALLD_OPTS` and `DELUGE_WEB_OPTS` in `/etc/default/squall-*` are now passed to the services.
+- System services set `PYTHONNOUSERSITE=1`. logrotate rotates the daemon log as the daemon user.
+- CI: read-only workflow token by default, credentials not persisted, actions pinned to commit SHAs, weekly deb rebuild, pip upgraded in the venv.
+
 ### Removed
 
 - Dropped support for Python 3.8 or older. (Requires Python >= 3.10)

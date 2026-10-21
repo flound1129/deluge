@@ -7,12 +7,18 @@
 #
 
 import base64
+import struct
+import zlib
 
 import pytest
 import rencode
 
 import deluge.log
-from deluge.transfer import SquallTransferProtocol
+from deluge.transfer import (
+    MESSAGE_HEADER_FORMAT,
+    PROTOCOL_VERSION,
+    SquallTransferProtocol,
+)
 
 deluge.log.setup_logger('none')
 
@@ -24,6 +30,10 @@ class TransferTestClass(SquallTransferProtocol):
         self.messages_out = []
         self.messages_in = []
         self.packet_count = 0
+        self.lost_connection = False
+
+    def loseConnection(self):  # NOQA: N802
+        self.lost_connection = True
 
     def write(self, message):
         """
@@ -251,6 +261,35 @@ class TestSquallTransferProtocol:
         assert rencode.dumps(self.msg1) == rencode.dumps(message1)
         message2 = self.transfer.get_messages_in().pop(0)
         assert rencode.dumps(self.msg2) == rencode.dumps(message2)
+
+    def test_receive_oversized_header_drops_connection(self):
+        self.transfer.max_message_size = lambda: 1024
+        header = struct.pack(MESSAGE_HEADER_FORMAT, PROTOCOL_VERSION, 1025)
+        self.transfer.dataReceived(header + b'x' * 10)
+        assert self.transfer.lost_connection
+        # Data after the drop is ignored.
+        self.transfer.dataReceived(
+            base64.b64decode(self.msg1_expected_compressed_base64)
+        )
+        assert self.transfer.get_messages_in() == []
+
+    def test_receive_decompression_bomb_is_rejected(self):
+        self.transfer.max_message_size = lambda: 64 * 1024
+        body = zlib.compress(rencode.dumps(b'\0' * (1024 * 1024)))
+        assert len(body) < 64 * 1024
+        header = struct.pack(MESSAGE_HEADER_FORMAT, PROTOCOL_VERSION, len(body))
+        self.transfer.dataReceived(header + body)
+        assert self.transfer.get_messages_in() == []
+
+    def test_receive_message_at_limit(self):
+        message = base64.b64decode(self.msg1_expected_compressed_base64)
+        decompressed_len = len(rencode.dumps(self.msg1))
+        self.transfer.max_message_size = lambda: decompressed_len + 1
+        self.transfer.dataReceived(message)
+        assert not self.transfer.lost_connection
+        assert rencode.dumps(self.msg1) == rencode.dumps(
+            self.transfer.get_messages_in()[0]
+        )
 
     def receive_parts_helper(self, data, packet_size, receive_func=None):
         byte_count = len(data)

@@ -13,6 +13,7 @@
 
 import logging
 import smtplib
+import ssl
 from email.utils import formatdate
 
 from twisted.internet import defer, threads
@@ -129,10 +130,13 @@ Date: %(date)s
         if security_enabled:
             server.ehlo()
             if 'starttls' not in server.esmtp_features:
-                log.warning('TLS/SSL enabled but server does not support it')
-            else:
-                server.starttls()
-                server.ehlo()
+                # Never fall back to plaintext: an attacker can strip STARTTLS.
+                err_msg = _('TLS/SSL enabled but server does not support it')
+                log.error(err_msg)
+                server.quit()
+                return err_msg
+            server.starttls(context=ssl.create_default_context())
+            server.ehlo()
 
         if self.config['smtp_user'] and self.config['smtp_pass']:
             try:

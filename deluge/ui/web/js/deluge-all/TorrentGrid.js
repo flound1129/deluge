@@ -218,14 +218,14 @@
                 hidden: true,
                 width: 120,
                 sortable: true,
-                renderer: fplain,
+                renderer: Ext.util.Format.htmlEncode,
                 dataIndex: 'download_location',
             },
             {
                 header: _('Owner'),
                 width: 80,
                 sortable: true,
-                renderer: fplain,
+                renderer: Ext.util.Format.htmlEncode,
                 dataIndex: 'owner',
             },
             {

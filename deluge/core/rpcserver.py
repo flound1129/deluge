@@ -36,11 +36,14 @@ from deluge.error import (
     _ClientSideRecreateError,
 )
 from deluge.event import ClientDisconnectedEvent
-from deluge.transfer import SquallTransferProtocol
+from deluge.transfer import MAX_MESSAGE_SIZE, SquallTransferProtocol
 
 RPC_RESPONSE = 1
 RPC_ERROR = 2
 RPC_EVENT = 3
+
+# daemon.info and daemon.login requests are tiny.
+MAX_UNAUTHENTICATED_MESSAGE_SIZE = 64 * 1024
 
 log = logging.getLogger(__name__)
 
@@ -207,6 +210,14 @@ class SquallRPCProtocol(SquallTransferProtocol):
     def valid_session(self):
         return self.transport.sessionno in self.factory.authorized_sessions
 
+    def max_message_size(self):
+        # Before login the only requests are daemon.info and daemon.login,
+        # so do not let an unauthenticated peer send large messages.
+        session = self.factory.authorized_sessions.get(self.transport.sessionno)
+        if session and session.auth_level > AUTH_LEVEL_NONE:
+            return MAX_MESSAGE_SIZE
+        return MAX_UNAUTHENTICATED_MESSAGE_SIZE
+
     def dispatch(self, request_id, method, args, kwargs):
         """
         This method is run when a RPC Request is made.  It will run the local method
@@ -302,6 +313,9 @@ class SquallRPCProtocol(SquallTransferProtocol):
 
         if method == 'daemon.set_event_interest':
             log.debug('RPC dispatch daemon.set_event_interest')
+            if self.transport.sessionno not in self.factory.session_protocols:
+                # Only logged-in sessions have a protocol to send events to.
+                return
             # This special case is to allow clients to set which events they are
             # interested in receiving.
             # We are expecting a sequence from the client.
@@ -555,12 +569,11 @@ class RPCServer(component.Component):
         log.debug('intevents: %s', self.factory.interested_events)
         # Use copy of `interested_events` since it can mutate while iterating.
         for session_id, interest in self.factory.interested_events.copy().items():
-            if event.name in interest:
+            protocol = self.factory.session_protocols.get(session_id)
+            if protocol and event.name in interest:
                 log.debug('Emit Event: %s %s', event.name, event.args)
                 # This session is interested so send a RPC_EVENT
-                self.factory.session_protocols[session_id].sendData(
-                    (RPC_EVENT, event.name, event.args)
-                )
+                protocol.sendData((RPC_EVENT, event.name, event.args))
 
     def emit_event_for_session_id(self, session_id, event):
         """

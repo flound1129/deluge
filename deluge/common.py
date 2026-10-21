@@ -1230,8 +1230,7 @@ def create_auth_file(auth_file):
 def create_localclient_account(
     append: bool = False, auth_file: Optional[str] = None
 ) -> tuple[Literal['localclient'], str]:
-    import random
-    from hashlib import sha1 as sha
+    import secrets
 
     import deluge.configmanager
 
@@ -1242,7 +1241,7 @@ def create_localclient_account(
         create_auth_file(auth_file)
 
     username = 'localclient'
-    password = sha(str(random.random()).encode('utf8')).hexdigest()
+    password = secrets.token_hex(20)
     with open(auth_file, 'a' if append else 'w', encoding='utf8') as _file:
         _file.write(
             ':'.join(

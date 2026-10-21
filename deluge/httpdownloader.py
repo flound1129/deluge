@@ -23,6 +23,14 @@ from zope.interface import implementer
 
 log = logging.getLogger(__name__)
 
+# Torrent files, tracker pages, icons and blocklists are far smaller. The cap stops
+# a hostile server from filling memory with an endless or highly compressed body.
+MAX_DOWNLOAD_SIZE = 256 * 1024 * 1024
+
+
+class DownloadTooLargeError(Exception):
+    pass
+
 
 class CompressionDecoder(client.GzipDecoder):
     """A compression decoder for gzip, x-gzip and deflate."""
@@ -58,14 +66,33 @@ class BodyHandler(HTTPClientParser):
         self.current_length = 0
         self.data = b''
         self.encoding = encoding
+        self.too_large = False
 
     def dataReceived(self, data):  # NOQA: N802
+        if self.too_large:
+            return
         self.current_length += len(data)
+        if self.current_length > MAX_DOWNLOAD_SIZE:
+            self.too_large = True
+            self.data = b''
+            self.transport.stopProducing()
+            return
         self.data += data
         if self.agent.part_callback:
             self.agent.part_callback(data, self.current_length, self.total_length)
 
     def connectionLost(self, reason):  # NOQA: N802
+        if self.too_large:
+            self.state = 'DONE'
+            self.finished.errback(
+                Failure(
+                    DownloadTooLargeError(
+                        f'Download is larger than {MAX_DOWNLOAD_SIZE} bytes'
+                    )
+                )
+            )
+            HTTPClientParser.connectionLost(self, reason)
+            return
         if self.encoding:
             self.data = self.data.decode(self.encoding).encode('utf8')
         with open(self.agent.filename, 'wb') as _file:

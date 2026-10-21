@@ -7,6 +7,7 @@
 #
 
 import logging
+from xml.sax.saxutils import escape as xml_escape
 
 import deluge.component as component
 from deluge.common import anchorify_urls, ftime
@@ -55,7 +56,7 @@ class TrackersTab(Tab):
             txt = self.widget_status_as_fstr(widget, status)
             if widget.obj.get_text() != txt:
                 if 'tracker_status' in widget.status_keys:
-                    widget.obj.set_markup(anchorify_urls(txt))
+                    widget.obj.set_markup(anchorify_urls(xml_escape(txt)))
                 else:
                     widget.obj.set_text(txt)
 
