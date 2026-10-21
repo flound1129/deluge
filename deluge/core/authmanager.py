@@ -7,10 +7,12 @@
 # See LICENSE for more details.
 #
 
+import contextlib
 import hmac
 import logging
 import os
-import shutil
+import stat
+import tempfile
 from typing import Literal, Union
 
 import deluge.component as component
@@ -41,6 +43,27 @@ AUTH_LEVELS_MAPPING = {
     'ADMIN': AUTH_LEVEL_ADMIN,
 }
 AUTH_LEVELS_MAPPING_REVERSE = {v: k for k, v in AUTH_LEVELS_MAPPING.items()}
+
+
+def _replace_private_file(path: str, data: str) -> None:
+    """Atomically replace path with data.
+
+    The data holds plaintext passwords. mkstemp creates a new file with mode 0600,
+    so no reader ever sees the data with a wider mode, whatever the umask is.
+    """
+    fd, tmp_path = tempfile.mkstemp(
+        dir=os.path.dirname(path), prefix=os.path.basename(path) + '.', suffix='.tmp'
+    )
+    try:
+        with open(fd, 'w', encoding='utf8') as _file:
+            _ = _file.write(data)
+            _file.flush()
+            os.fsync(_file.fileno())
+        os.replace(tmp_path, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.remove(tmp_path)
+        raise
 
 
 class Account:
@@ -211,39 +234,25 @@ class AuthManager(component.Component):
         filename = 'auth'
         filepath = os.path.join(configmanager.get_config_dir(), filename)
         filepath_bak = filepath + '.bak'
-        filepath_tmp = filepath + '.tmp'
+        data = ''.join(
+            '%(username)s:%(password)s:%(authlevel_int)s\n' % account.data()
+            for account in self.__auth.values()
+        )
 
         try:
             if os.path.isfile(filepath):
                 log.debug('Creating backup of %s at: %s', filename, filepath_bak)
-                _ = shutil.copy2(filepath, filepath_bak)
-                os.chmod(filepath_bak, 0o600)
-        except OSError as ex:
-            log.error('Unable to backup %s to %s: %s', filepath, filepath_bak, ex)
-        else:
+                with open(filepath, encoding='utf8') as _file:
+                    _replace_private_file(filepath_bak, _file.read())
             log.info('Saving the %s at: %s', filename, filepath)
-            try:
-                # The file holds plaintext passwords, so never take the mode from the umask.
-                with open(
-                    filepath_tmp,
-                    'w',
-                    encoding='utf8',
-                    opener=lambda path, flags: os.open(path, flags, 0o600),
-                ) as _file:
-                    os.chmod(filepath_tmp, 0o600)
-                    for account in self.__auth.values():
-                        _ = _file.write(
-                            '%(username)s:%(password)s:%(authlevel_int)s\n'
-                            % account.data()
-                        )
-                    _file.flush()
-                    os.fsync(_file.fileno())
-                _ = shutil.move(filepath_tmp, filepath)
-            except OSError as ex:
-                log.error('Unable to save %s: %s', filename, ex)
-                if os.path.isfile(filepath_bak):
-                    log.info('Restoring backup of %s from: %s', filename, filepath_bak)
-                    _ = shutil.move(filepath_bak, filepath)
+            _replace_private_file(filepath, data)
+        except OSError as ex:
+            log.error('Unable to save %s: %s', filename, ex)
+            # The file on disk is unchanged. Load it again so memory matches it,
+            # then tell the caller that the change was not saved.
+            self.__auth_modification_time = None
+            self.__load_auth_file()
+            raise AuthManagerError(f'Unable to save the {filename} file: {ex}', None)
 
         self.__load_auth_file()
 
@@ -281,10 +290,12 @@ class AuthManager(component.Component):
                 # Keep the current accounts; the next update tries again.
                 return
 
-        # Older versions rewrote these files with the umask mode, so make them private.
-        for _filepath in (auth_file, auth_file_bak):
+        # Older versions wrote these files with the umask mode, so make them private.
+        # lstat, so that a symlink is never followed to some other file.
+        for _filepath in (auth_file, auth_file_bak, auth_file + '.tmp'):
             try:
-                if os.stat(_filepath).st_mode & 0o077:
+                mode = os.lstat(_filepath).st_mode
+                if stat.S_ISREG(mode) and mode & 0o077:
                     os.chmod(_filepath, 0o600)
             except OSError:
                 pass

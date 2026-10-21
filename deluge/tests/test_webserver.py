@@ -23,6 +23,12 @@ common.disable_new_release_check()
 
 
 class TestWebServer(WebServerTestBase, WebServerMockBase):
+    def test_session_cleaner_runs(self):
+        """S09: the web server starts and stops the session cleaner."""
+        assert self.deluge_web.auth.worker.running
+        self.deluge_web.stop()
+        assert not self.deluge_web.auth.worker.running
+
     async def test_get_torrent_info(self):
         agent = Agent(reactor)
 

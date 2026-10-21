@@ -794,6 +794,8 @@ class DelugeWeb(component.Component):
             self.start_normal()
 
         component.get('Web').enable()
+        # Nothing calls component.start() in the web UI, so start the session cleaner here.
+        self.auth.start()
 
         if self.daemon:
             reactor.run()
@@ -829,6 +831,7 @@ class DelugeWeb(component.Component):
             pass
 
         self.plugins.disable_plugins()
+        self.auth.stop()
         log.debug('Saving configuration file')
         self.config.save()
 

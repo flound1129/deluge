@@ -6,6 +6,8 @@
 # See LICENSE for more details.
 #
 
+from unittest import mock
+
 import deluge.component as component
 import deluge.error
 from deluge.common import get_localhost_auth
@@ -139,3 +141,69 @@ class TestRPCServer(BaseTestCase):
             rpcserver.AUTH_LEVEL_ADMIN, 'localclient'
         )
         assert self.protocol.max_message_size() == rpcserver.MAX_MESSAGE_SIZE
+
+    def test_set_event_interest_rejects_invalid_names(self):
+        """S04: event interest must be a list of event names."""
+        self.protocol.dispatch(
+            self.request_id, 'daemon.set_event_interest', [[123]], {}
+        )
+        msg = self.protocol.messages.pop()
+        assert msg[0] == rpcserver.RPC_ERROR
+        assert self.factory.interested_events[self.session_id] == [
+            'TorrentFolderRenamedEvent'
+        ]
+
+    def test_set_event_interest_deduplicates_and_caps(self):
+        """S04: repeated names are stored once and the number of names is capped."""
+        self.protocol.dispatch(
+            self.request_id,
+            'daemon.set_event_interest',
+            [['TorrentAddedEvent', 'TorrentAddedEvent', 'TorrentFolderRenamedEvent']],
+            {},
+        )
+        assert self.protocol.messages.pop()[0] == rpcserver.RPC_RESPONSE
+        assert self.factory.interested_events[self.session_id] == [
+            'TorrentFolderRenamedEvent',
+            'TorrentAddedEvent',
+        ]
+
+        names = ['Event%d' % i for i in range(rpcserver.MAX_EVENT_INTERESTS)]
+        self.protocol.dispatch(
+            self.request_id, 'daemon.set_event_interest', [names], {}
+        )
+        assert self.protocol.messages.pop()[0] == rpcserver.RPC_ERROR
+        assert len(self.factory.interested_events[self.session_id]) == 2
+
+    def test_emit_event_failed_recipient_does_not_stop_others(self):
+        """S04: an error from one recipient does not stop delivery to another."""
+        from deluge.event import TorrentFolderRenamedEvent
+
+        broken = mock.Mock()
+        broken.sendData.side_effect = OSError('connection gone')
+        self.factory.session_protocols['1'] = broken
+        self.factory.interested_events['1'] = ['TorrentFolderRenamedEvent']
+        # Put the broken recipient first.
+        self.factory.interested_events = {
+            '1': self.factory.interested_events['1'],
+            self.session_id: self.factory.interested_events[self.session_id],
+        }
+
+        self.rpcserver.emit_event(TorrentFolderRenamedEvent('12', 'new', 'old'))
+        broken.sendData.assert_called_once()
+        msg = self.protocol.messages.pop()
+        assert msg[0] == rpcserver.RPC_EVENT
+        assert msg[1] == 'TorrentFolderRenamedEvent'
+
+    def test_event_handlers_run_when_client_delivery_fails(self):
+        """S04: local handlers, and the operation that emits, survive a delivery error."""
+        from deluge.core.eventmanager import EventManager
+        from deluge.event import PreTorrentRemovedEvent
+
+        event_manager = EventManager()
+        handler = mock.Mock()
+        event_manager.register_event_handler('PreTorrentRemovedEvent', handler)
+        with mock.patch.object(
+            self.rpcserver, 'emit_event', side_effect=KeyError('stale session')
+        ):
+            event_manager.emit(PreTorrentRemovedEvent('12'))
+        handler.assert_called_once_with('12')

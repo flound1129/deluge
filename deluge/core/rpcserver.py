@@ -45,6 +45,10 @@ RPC_EVENT = 3
 # daemon.info and daemon.login requests are tiny.
 MAX_UNAUTHENTICATED_MESSAGE_SIZE = 64 * 1024
 
+# Core and plugins define a few dozen events with names under 30 characters.
+MAX_EVENT_INTERESTS = 256
+MAX_EVENT_NAME_LENGTH = 128
+
 log = logging.getLogger(__name__)
 
 TCallable = TypeVar('TCallable', bound=Callable)
@@ -318,11 +322,25 @@ class SquallRPCProtocol(SquallTransferProtocol):
                 return
             # This special case is to allow clients to set which events they are
             # interested in receiving.
-            # We are expecting a sequence from the client.
+            # We are expecting a sequence of event names from the client.
             try:
-                if self.transport.sessionno not in self.factory.interested_events:
-                    self.factory.interested_events[self.transport.sessionno] = []
-                self.factory.interested_events[self.transport.sessionno].extend(args[0])
+                names = args[0]
+                if not isinstance(names, (list, tuple)) or not all(
+                    isinstance(name, str) and len(name) <= MAX_EVENT_NAME_LENGTH
+                    for name in names
+                ):
+                    raise TypeError('Event interest must be a list of event names')
+                current = self.factory.interested_events.get(
+                    self.transport.sessionno, []
+                )
+                interest = current + [
+                    name for name in dict.fromkeys(names) if name not in current
+                ]
+                if len(interest) > MAX_EVENT_INTERESTS:
+                    raise ValueError(
+                        'A session can register at most %d events' % MAX_EVENT_INTERESTS
+                    )
+                self.factory.interested_events[self.transport.sessionno] = interest
             except Exception:
                 send_error()
             else:
@@ -572,8 +590,17 @@ class RPCServer(component.Component):
             protocol = self.factory.session_protocols.get(session_id)
             if protocol and event.name in interest:
                 log.debug('Emit Event: %s %s', event.name, event.args)
-                # This session is interested so send a RPC_EVENT
-                protocol.sendData((RPC_EVENT, event.name, event.args))
+                # This session is interested so send a RPC_EVENT. One failed
+                # recipient must not stop delivery to the others.
+                try:
+                    protocol.sendData((RPC_EVENT, event.name, event.args))
+                except Exception as ex:
+                    log.error(
+                        'Unable to send event %s to session %s: %s',
+                        event.name,
+                        session_id,
+                        ex,
+                    )
 
     def emit_event_for_session_id(self, session_id, event):
         """

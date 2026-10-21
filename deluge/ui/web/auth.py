@@ -67,10 +67,17 @@ class Auth(JSONComponent):
         self.config = config
 
     def start(self):
-        self.worker.start(5)
+        if not self.worker.running:
+            self.worker.start(5)
 
     def stop(self):
-        self.worker.stop()
+        if self.worker.running:
+            self.worker.stop()
+
+    def shutdown(self):
+        # DelugeWeb starts the cleaner directly, so the registry may see this
+        # component as stopped and not call stop().
+        self.stop()
 
     def _clean_sessions(self):
         now = time.gmtime()
@@ -154,8 +161,8 @@ class Auth(JSONComponent):
         else:
             session_id = None
 
-        # The web server does not start this component, so _clean_sessions never
-        # runs. Check expiry here, before the session is renewed.
+        # _clean_sessions runs only every few seconds, so check expiry here too,
+        # before the session is renewed.
         if (
             session_id in self.config['sessions']
             and self.config['sessions'][session_id].get('expires', 0) < time.time()

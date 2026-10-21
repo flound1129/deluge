@@ -24,8 +24,12 @@ class EventManager(component.Component):
 
         :param event: DelugeEvent
         """
-        # Emit the event to the interested clients
-        component.get('RPCServer').emit_event(event)
+        # Emit the event to the interested clients. A failure here must not stop
+        # the local handlers, or the operation that emitted the event.
+        try:
+            component.get('RPCServer').emit_event(event)
+        except Exception as ex:
+            log.error('Unable to send event %s to clients: %s', event.name, ex)
         # Call any handlers for the event
         if event.name in self.handlers:
             for handler in self.handlers[event.name]:
