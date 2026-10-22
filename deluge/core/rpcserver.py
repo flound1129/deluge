@@ -36,6 +36,7 @@ from deluge.error import (
     _ClientSideRecreateError,
 )
 from deluge.event import ClientDisconnectedEvent
+from deluge.login_limiter import LoginLimiter
 from deluge.transfer import MAX_MESSAGE_SIZE, SquallTransferProtocol
 
 RPC_RESPONSE = 1
@@ -283,12 +284,24 @@ class SquallRPCProtocol(SquallTransferProtocol):
             # This is a special case and used in the initial connection process
             # We need to authenticate the user here
             log.debug('RPC dispatch daemon.login')
+            login_limiter = self.factory.login_limiter
+            blocked = False
             try:
                 client_version = kwargs.pop('client_version', None)
                 if client_version is None:
                     raise IncompatibleClient(deluge.common.get_version())
+                peer = self.transport.getPeer()
+                wait = login_limiter.check(peer.host)
+                if wait:
+                    # Refuse before the password check, which is slow (scrypt).
+                    blocked = True
+                    raise BadLoginError(
+                        f'Too many failed logins. Try again in {wait} seconds.',
+                        args[0] if args else '',
+                    )
                 ret = component.get('AuthManager').authorize(*args, **kwargs)
                 if ret:
+                    login_limiter.success(peer.host)
                     self.factory.authorized_sessions[self.transport.sessionno] = (
                         self.AuthLevel(ret, args[0])
                     )
@@ -298,7 +311,8 @@ class SquallRPCProtocol(SquallTransferProtocol):
                 if not isinstance(ex, _ClientSideRecreateError):
                     log.exception(ex)
                 if isinstance(ex, BadLoginError):
-                    peer = self.transport.getPeer()
+                    if not blocked:
+                        login_limiter.failure(peer.host)
                     log.error(
                         'Squall client authentication error made from: %s:%s (%s)',
                         peer.host,
@@ -434,6 +448,8 @@ class RPCServer(component.Component):
         self.factory.session_protocols = {}
         # Holds the interested event list for the sessions
         self.factory.interested_events = {}
+        # Counts failed logins per client address
+        self.factory.login_limiter = LoginLimiter()
 
         self.listen = listen
         if not listen:

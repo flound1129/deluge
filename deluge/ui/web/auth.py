@@ -18,6 +18,7 @@ from twisted.internet.task import LoopingCall
 
 from deluge.common import AUTH_LEVEL_ADMIN, AUTH_LEVEL_NONE
 from deluge.error import NotAuthorizedError
+from deluge.login_limiter import LoginLimiter
 from deluge.ui.web.json_api import JSONComponent, export
 
 log = logging.getLogger(__name__)
@@ -65,6 +66,8 @@ class Auth(JSONComponent):
         super().__init__('Auth')
         self.worker = LoopingCall(self._clean_sessions)
         self.config = config
+        # Counts failed password checks per client address
+        self.login_limiter = LoginLimiter()
 
     def start(self):
         if not self.worker.running:
@@ -234,8 +237,17 @@ class Auth(JSONComponent):
         :param new_password: the password to change to
         :type new_password: string
         """
-        if not self.check_password(old_password):
+        client_ip = __request__.getClientIP()
+        if self.login_limiter.check(client_ip):
+            log.error(
+                'Password change refused, too many failed tries (ClientIP %s)',
+                client_ip,
+            )
             return False
+        if not self.check_password(old_password):
+            self.login_limiter.failure(client_ip)
+            return False
+        self.login_limiter.success(client_ip)
         # Keep only the caller's session, so an old or stolen cookie stops working.
         for session_id in list(self.config['sessions']):
             if session_id != __request__.session_id:
@@ -273,9 +285,21 @@ class Auth(JSONComponent):
         :returns: a session id or False
         :rtype: string or False
         """
+        client_ip = __request__.getClientIP()
+        wait = self.login_limiter.check(client_ip)
+        if wait:
+            # Refuse without checking the password, even a correct one.
+            log.error(
+                'Login refused, too many failed logins (ClientIP %s, %s seconds left)',
+                client_ip,
+                wait,
+            )
+            return False
         if self.check_password(password):
-            log.info('Login success (ClientIP %s)', __request__.getClientIP())
+            self.login_limiter.success(client_ip)
+            log.info('Login success (ClientIP %s)', client_ip)
             return self._create_session(__request__)
         else:
-            log.error('Login failed (ClientIP %s)', __request__.getClientIP())
+            self.login_limiter.failure(client_ip)
+            log.error('Login failed (ClientIP %s)', client_ip)
             return False

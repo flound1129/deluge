@@ -11,6 +11,7 @@ import pytest
 
 from deluge.common import AUTH_LEVEL_ADMIN, AUTH_LEVEL_DEFAULT
 from deluge.error import NotAuthorizedError
+from deluge.login_limiter import MAX_FAILURES
 from deluge.ui.web import auth
 
 
@@ -77,3 +78,50 @@ class TestWebAuth:
             webauth.check_request(request, level=AUTH_LEVEL_DEFAULT)
         assert session_id not in config['sessions']
         request.addCookie.assert_not_called()
+
+    @patch('deluge.ui.web.auth.JSONComponent.__init__', return_value=None)
+    def test_login_blocked_after_failed_logins(self, mock_json):
+        config = MockConfig(
+            {
+                'pwd_sha1': '8d8ff487626141d2b91025901d3ab57211180b48',
+                'pwd_salt': '7555d757710158655bd1646e207dee21a89e9226',
+                'session_timeout': 3600,
+                'sessions': {},
+            }
+        )
+        webauth = auth.Auth(config)
+        request = Mock(base=b'/')
+        request.getClientIP.return_value = '192.0.2.1'
+        with patch.object(auth, '__request__', request, create=True):
+            for _ in range(MAX_FAILURES):
+                assert not webauth.login('wrong')
+
+            # A correct password is refused too, and is not checked.
+            with patch.object(
+                webauth, 'check_password', wraps=webauth.check_password
+            ) as check_password:
+                assert not webauth.login('deluge')
+            check_password.assert_not_called()
+            assert config['sessions'] == {}
+
+            request.getClientIP.return_value = '192.0.2.2'
+            assert webauth.login('deluge')
+        assert len(config['sessions']) == 1
+
+    @patch('deluge.ui.web.auth.JSONComponent.__init__', return_value=None)
+    def test_change_password_blocked_after_failed_tries(self, mock_json):
+        config = MockConfig(
+            {
+                'pwd_sha1': '8d8ff487626141d2b91025901d3ab57211180b48',
+                'pwd_salt': '7555d757710158655bd1646e207dee21a89e9226',
+                'sessions': {},
+            }
+        )
+        webauth = auth.Auth(config)
+        request = Mock(session_id=None)
+        request.getClientIP.return_value = '192.0.2.1'
+        with patch.object(auth, '__request__', request, create=True):
+            for _ in range(MAX_FAILURES):
+                assert not webauth.change_password('wrong', 'deluge_new')
+            assert not webauth.change_password('deluge', 'deluge_new')
+        assert config['pwd_sha1'] == '8d8ff487626141d2b91025901d3ab57211180b48'

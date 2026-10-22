@@ -8,6 +8,8 @@
 
 from unittest import mock
 
+from twisted.internet.address import IPv4Address
+
 import deluge.component as component
 import deluge.error
 from deluge.common import get_localhost_auth
@@ -16,6 +18,7 @@ from deluge.core import rpcserver
 from deluge.core.authmanager import AuthManager
 from deluge.core.rpcserver import RPCServer, SquallRPCProtocol
 from deluge.log import setup_logger
+from deluge.login_limiter import MAX_FAILURES
 
 setup_logger('none')
 
@@ -25,6 +28,10 @@ class SquallRPCProtocolTester(SquallRPCProtocol):
 
     def transfer_message(self, data):
         self.messages.append(data)
+
+    def getPeer(self):  # NOQA: N802
+        # The tests use the protocol as its own transport.
+        return IPv4Address('TCP', '192.0.2.1', 54321)
 
 
 class TestRPCServer(BaseTestCase):
@@ -77,6 +84,42 @@ class TestRPCServer(BaseTestCase):
         assert msg[0] == rpcserver.RPC_RESPONSE, str(msg)
         assert msg[1] == self.request_id, str(msg)
         assert msg[2] == rpcserver.AUTH_LEVEL_ADMIN, str(msg)
+
+    def login(self, username, password):
+        self.protocol.dispatch(
+            self.request_id,
+            'daemon.login',
+            [username, password],
+            {'client_version': 'Test'},
+        )
+        return self.protocol.messages.pop()
+
+    def test_login_blocked_after_failed_logins(self):
+        self.authmanager = AuthManager()
+        username, password = get_localhost_auth()
+        for _ in range(MAX_FAILURES):
+            msg = self.login(username, 'wrong')
+            assert msg[0] == rpcserver.RPC_ERROR
+            assert msg[2] == 'BadLoginError'
+
+        # A correct password is refused too, and is not checked.
+        with mock.patch.object(
+            self.authmanager, 'authorize', wraps=self.authmanager.authorize
+        ) as authorize:
+            msg = self.login(username, password)
+        assert msg[0] == rpcserver.RPC_ERROR
+        assert msg[2] == 'BadLoginError'
+        assert msg[3][0].startswith('Too many failed logins.')
+        authorize.assert_not_called()
+
+    def test_good_login_resets_failed_logins(self):
+        self.authmanager = AuthManager()
+        username, password = get_localhost_auth()
+        for _ in range(2):
+            for _ in range(MAX_FAILURES - 1):
+                assert self.login(username, 'wrong')[0] == rpcserver.RPC_ERROR
+            msg = self.login(username, password)
+            assert msg[0] == rpcserver.RPC_RESPONSE, str(msg)
 
     def test_client_login_error(self):
         # This test causes error log prints while running the test...
