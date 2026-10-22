@@ -3,12 +3,14 @@
 # the additional special exception to link portions of this program with the OpenSSL library.
 # See LICENSE for more details.
 #
+import gc
 import sys
 from dataclasses import dataclass
 
 import pytest
 from twisted.internet import reactor, task
 
+from deluge import configmanager
 from deluge.core.core import Core
 
 
@@ -52,8 +54,25 @@ def mock_alert2():
 
 
 class TestAlertManager:
+    @pytest.fixture
+    def free_core(self):
+        yield
+        # set_up requests this before component, so it runs after the component
+        # fixture shuts the Core down. Free the Core and its libtorrent session
+        # (about 110 fds) now. Otherwise a later GC frees them at a random point
+        # in another test, which can break the fd list Twisted uses to spawn the
+        # test daemon (macOS). Until then the Core is held by the alert-poller
+        # thread (until it sees the stop), by the core.conf callbacks and by its
+        # own reference cycles.
+        alert_thread = self.am._thread
+        del self.am
+        del self.core
+        alert_thread.join(timeout=5)
+        configmanager.close('core.conf')
+        gc.collect()
+
     @pytest.fixture(autouse=True)
-    def set_up(self, component):
+    def set_up(self, free_core, component):
         self.core = Core()
         self.core.config.config['lsd'] = False
         self.am = component.get('AlertManager')
