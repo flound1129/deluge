@@ -14,7 +14,7 @@ import time
 from twisted.internet.utils import getProcessOutputAndValue
 
 import deluge.component as component
-from deluge.common import windows_check
+from deluge.common import AUTH_LEVEL_ADMIN, windows_check
 from deluge.configmanager import ConfigManager
 from deluge.core.rpcserver import export
 from deluge.event import DelugeEvent
@@ -149,7 +149,8 @@ class Core(CorePluginBase):
         log.debug('Execute core plugin disabled!')
 
     # Exported RPC methods #
-    @export
+    # Commands run as the daemon user, so only an admin may change them.
+    @export(AUTH_LEVEL_ADMIN)
     def add_command(self, event, command):
         command_id = hashlib.sha1(str(time.time()).encode()).hexdigest()
         self.config['commands'].append((command_id, event, command))
@@ -162,7 +163,7 @@ class Core(CorePluginBase):
     def get_commands(self):
         return self.config['commands']
 
-    @export
+    @export(AUTH_LEVEL_ADMIN)
     def remove_command(self, command_id):
         for command in self.config['commands']:
             if command[EXECUTE_ID] == command_id:
@@ -173,7 +174,7 @@ class Core(CorePluginBase):
                 break
         self.config.save()
 
-    @export
+    @export(AUTH_LEVEL_ADMIN)
     def save_command(self, command_id, event, cmd):
         for i, command in enumerate(self.config['commands']):
             if command[EXECUTE_ID] == command_id:

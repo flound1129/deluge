@@ -21,12 +21,15 @@ import deluge.common
 import deluge.component as component
 import deluge.core.torrent
 from deluge._libtorrent import lt
+from deluge.configmanager import get_config_dir
 from deluge.conftest import BaseTestCase
+from deluge.core import rpcserver
 from deluge.core.core import Core
 from deluge.core.rpcserver import RPCServer
 from deluge.error import AddTorrentError, InvalidTorrentError
 
 from . import common
+from .test_rpcserver import SquallRPCProtocolTester
 
 common.disable_new_release_check()
 
@@ -478,6 +481,77 @@ class TestCore(BaseTestCase):
         assert old_value == new_value
 
         self.core.read_only_config_keys = None
+
+    def dispatch_as(self, auth_level, method, *args):
+        """Call ``method`` through the RPC dispatch, from a client at ``auth_level``."""
+        self.rpcserver.register_object(self.core)
+        # With listen False every caller counts as admin, so use the session level.
+        self.rpcserver.listen = True
+        protocol = SquallRPCProtocolTester()
+        protocol.factory = self.rpcserver.factory
+        protocol.transport = protocol
+        protocol.sessionno = 1
+        self.rpcserver.factory.authorized_sessions[1] = protocol.AuthLevel(
+            auth_level, 'user'
+        )
+        protocol.dispatch(1, method, args, {})
+        return protocol.messages.pop()
+
+    @pytest.mark.parametrize(
+        'method, args',
+        [
+            ('core.upload_plugin', ['test.egg', b64encode(b'data')]),
+            ('core.enable_plugin', ['Execute']),
+            ('core.disable_plugin', ['Execute']),
+            ('core.rescan_plugins', []),
+        ],
+    )
+    def test_plugin_rpcs_need_admin(self, method, args):
+        msg = self.dispatch_as(deluge.common.AUTH_LEVEL_NORMAL, method, *args)
+        assert msg[0] == rpcserver.RPC_ERROR, str(msg)
+        assert msg[2] == 'NotAuthorizedError'
+        assert not os.path.exists(os.path.join(get_config_dir(), 'plugins', 'test.egg'))
+
+    def test_admin_can_upload_plugin(self):
+        msg = self.dispatch_as(
+            deluge.common.AUTH_LEVEL_ADMIN,
+            'core.upload_plugin',
+            'test.egg',
+            b64encode(b'data'),
+        )
+        assert msg[0] == rpcserver.RPC_RESPONSE, str(msg)
+        with open(os.path.join(get_config_dir(), 'plugins', 'test.egg'), 'rb') as _file:
+            assert _file.read() == b'data'
+
+    def test_set_enabled_plugins_needs_admin(self):
+        connections = self.core.get_config_value('max_connections_global')
+        plugins = self.core.get_config_value('enabled_plugins')
+        msg = self.dispatch_as(
+            deluge.common.AUTH_LEVEL_NORMAL,
+            'core.set_config',
+            {'max_connections_global': connections + 1, 'enabled_plugins': ['Execute']},
+        )
+        assert msg[0] == rpcserver.RPC_ERROR, str(msg)
+        assert msg[2] == 'NotAuthorizedError'
+        # The whole request is refused, also the key that a NORMAL user may set.
+        assert self.core.get_config_value('max_connections_global') == connections
+        assert self.core.get_config_value('enabled_plugins') == plugins
+
+        msg = self.dispatch_as(
+            deluge.common.AUTH_LEVEL_NORMAL,
+            'core.set_config',
+            {'max_connections_global': connections + 1},
+        )
+        assert msg[0] == rpcserver.RPC_RESPONSE, str(msg)
+        assert self.core.get_config_value('max_connections_global') == connections + 1
+
+        msg = self.dispatch_as(
+            deluge.common.AUTH_LEVEL_ADMIN,
+            'core.set_config',
+            {'enabled_plugins': ['Execute']},
+        )
+        assert msg[0] == rpcserver.RPC_RESPONSE, str(msg)
+        assert self.core.get_config_value('enabled_plugins') == ['Execute']
 
     def test__create_peer_id(self):
         assert self.core._create_peer_id('2.0.0') == '-DE200s-'
