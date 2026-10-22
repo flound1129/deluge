@@ -96,3 +96,22 @@ daemon's state that the clients need to be made aware of.
 **data** (list)
     Additional data to be sent with the event. This is dependent upon the event
     being emitted.
+
+--------------------------
+Accounts and access levels
+--------------------------
+A client must call ``daemon.login`` with a user name and password from the
+daemon's ``auth`` file before it can call other methods. Each account has one of
+these auth levels: ``READONLY`` (1), ``NORMAL`` (5) or ``ADMIN`` (10). Each RPC
+method has a minimum level. Most methods need ``NORMAL``. Account management and
+plugin control need ``ADMIN``.
+
+Give daemon accounts only to people that you trust with the files of the user
+that runs the daemon:
+
+- A ``NORMAL`` account can choose any download folder, so it can write files
+  wherever the daemon user can write.
+- A torrent that is not shared is only hidden from the torrent lists of other
+  accounts below ``ADMIN``. Any account that knows the torrent ID can read the
+  torrent, change it, and remove it with its data. Torrent events go to all
+  logged-in clients that ask for them.
