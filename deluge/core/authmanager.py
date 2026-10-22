@@ -213,6 +213,7 @@ class AuthManager(component.Component):
             self.__auth[username].password = password_hash or password
             self.__auth[username].authlevel = AUTH_LEVELS_MAPPING[authlevel]
             self.write_auth_file()
+            self._end_sessions(username)
             return True
         except Exception as ex:
             log.exception(ex)
@@ -228,7 +229,17 @@ class AuthManager(component.Component):
 
         del self.__auth[username]
         self.write_auth_file()
+        self._end_sessions(username)
         return True
+
+    @staticmethod
+    def _end_sessions(username: str) -> None:
+        """End the live sessions of an account that was removed or changed."""
+        try:
+            rpcserver = component.get('RPCServer')
+        except KeyError:
+            return
+        rpcserver.end_user_sessions(username)
 
     def write_auth_file(self) -> None:
         filename = 'auth'
@@ -348,7 +359,17 @@ class AuthManager(component.Component):
             _ = create_localclient_account(True)
             return self.__load_auth_file()
 
+        # Accounts removed from the file, or with a new password or auth level.
+        changed = [
+            username
+            for username, account in self.__auth.items()
+            if username not in accounts
+            or accounts[username].password != account.password
+            or accounts[username].authlevel != account.authlevel
+        ]
         self.__auth = accounts
+        for username in changed:
+            self._end_sessions(username)
         if save_and_reload:
             log.info('Re-writing auth file (upgrade)')
             self.write_auth_file()

@@ -589,6 +589,30 @@ class RPCServer(component.Component):
             # No connections made yet
             return ''
 
+    def end_user_sessions(self, username):
+        """End all sessions of ``username``, because its account was removed or
+        changed.
+
+        The sessions drop to AUTH_LEVEL_NONE at once, so requests that are
+        already queued are refused, and they get no more events. Then they are
+        disconnected.
+        """
+        for session_id, session in list(self.factory.authorized_sessions.items()):
+            if not session or session.auth_level == AUTH_LEVEL_NONE:
+                continue
+            if session.username != username:
+                continue
+            log.info(
+                'Ending session %s of %s: the account changed', session_id, username
+            )
+            self.factory.authorized_sessions[session_id] = session._replace(
+                auth_level=AUTH_LEVEL_NONE, username=''
+            )
+            self.factory.interested_events.pop(session_id, None)
+            protocol = self.factory.session_protocols.pop(session_id, None)
+            if protocol:
+                protocol.transport.loseConnection()
+
     def get_session_auth_level(self):
         """
         Returns the auth level of the user calling the current RPC.

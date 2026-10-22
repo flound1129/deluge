@@ -6,21 +6,24 @@
 # See LICENSE for more details.
 #
 
+import os
 import struct
 import zlib
 from unittest import mock
 
+import pytest
 import rencode
 from twisted.internet import task
 from twisted.internet.address import IPv4Address
 
 import deluge.component as component
+import deluge.configmanager
 import deluge.error
-from deluge.common import get_localhost_auth
+from deluge.common import AUTH_LEVEL_NONE, AUTH_LEVEL_NORMAL, get_localhost_auth
 from deluge.conftest import BaseTestCase
 from deluge.core import rpcserver
 from deluge.core.authmanager import AuthManager
-from deluge.core.rpcserver import RPCServer, SquallRPCProtocol
+from deluge.core.rpcserver import RPCServer, SquallRPCProtocol, export
 from deluge.log import setup_logger
 from deluge.login_limiter import MAX_FAILURES
 
@@ -36,6 +39,12 @@ class SquallRPCProtocolTester(SquallRPCProtocol):
     def getPeer(self):  # NOQA: N802
         # The tests use the protocol as its own transport.
         return IPv4Address('TCP', '192.0.2.1', 54321)
+
+
+class MarkerMethods:
+    @export
+    def marker(self):
+        return 'marker'
 
 
 class TestRPCServer(BaseTestCase):
@@ -177,6 +186,69 @@ class TestRPCServer(BaseTestCase):
         assert msg[1] == self.request_id
         assert msg[2] == 'WrappedException'
         assert msg[3][1] == 'AttributeError'
+
+    def log_in_alice(self):
+        """Create the NORMAL account alice and log the test session in with it."""
+        self.authmanager = AuthManager()
+        self.authmanager.create_account('alice', 'secret', 'NORMAL')
+        self.rpcserver.register_object(MarkerMethods(), 'test')
+        msg = self.login('alice', 'secret')
+        assert msg[0] == rpcserver.RPC_RESPONSE, str(msg)
+        self.protocol.loseConnection = mock.Mock()
+        self.protocol.dispatch(self.request_id, 'test.marker', [], {})
+        assert self.protocol.messages.pop()[2] == 'marker'
+
+    def assert_session_ended(self):
+        session = self.factory.authorized_sessions[self.session_id]
+        assert session.auth_level == AUTH_LEVEL_NONE
+        assert self.session_id not in self.factory.interested_events
+        assert self.session_id not in self.factory.session_protocols
+        self.protocol.loseConnection.assert_called_once()
+        # A request that is queued before the disconnect is refused.
+        self.protocol.dispatch(self.request_id, 'test.marker', [], {})
+        msg = self.protocol.messages.pop()
+        assert msg[0] == rpcserver.RPC_ERROR
+        assert msg[2] == 'NotAuthorizedError'
+
+    def test_remove_account_ends_session(self):
+        """S10: removing an account ends its live sessions."""
+        self.log_in_alice()
+        self.authmanager.remove_account('alice')
+        self.assert_session_ended()
+        # An account with the same name does not revive the session.
+        self.authmanager.create_account('alice', 'secret', 'NORMAL')
+        session = self.factory.authorized_sessions[self.session_id]
+        assert session.auth_level == AUTH_LEVEL_NONE
+
+    @pytest.mark.parametrize(
+        'password, authlevel', [('changed', 'NORMAL'), ('secret', 'READONLY')]
+    )
+    def test_update_account_ends_session(self, password, authlevel):
+        """S10: a new password or auth level ends the account's live sessions."""
+        self.log_in_alice()
+        self.authmanager.update_account('alice', password, authlevel)
+        self.assert_session_ended()
+
+    def test_auth_file_change_ends_session(self):
+        """S10: an account removed from the auth file loses its live sessions."""
+        self.log_in_alice()
+        auth_file = deluge.configmanager.get_config_dir('auth')
+        with open(auth_file, encoding='utf8') as _file:
+            lines = [line for line in _file if not line.startswith('alice:')]
+        with open(auth_file, 'w', encoding='utf8') as _file:
+            _file.writelines(lines)
+        # Make sure the modification time changes.
+        os.utime(auth_file, ns=(0, 0))
+        self.authmanager.update()
+        self.assert_session_ended()
+
+    def test_other_account_change_keeps_session(self):
+        self.log_in_alice()
+        self.authmanager.create_account('bob', 'secret', 'NORMAL')
+        self.authmanager.remove_account('bob')
+        session = self.factory.authorized_sessions[self.session_id]
+        assert session.auth_level == AUTH_LEVEL_NORMAL
+        self.protocol.loseConnection.assert_not_called()
 
     def test_client_invalid_method_call(self):
         self.authmanager = AuthManager()
