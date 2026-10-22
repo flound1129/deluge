@@ -653,12 +653,18 @@ class WebApi(JSONComponent):
         :rtype: string
         """
 
+        staged_files = component.get('DelugeWeb').staged_files
+        if not staged_files.has_room(1, 0):
+            raise JSONException('Too many staged files')
+
         def on_download_success(result):
             log.debug('Successfully downloaded %s to %s', url, result)
+            staged_files.add(result, os.path.getsize(result))
             return result
 
         def on_download_fail(result):
             log.error('Failed to add torrent from url %s', url)
+            shutil.rmtree(tempdir, ignore_errors=True)
             return result
 
         tempdir = tempfile.mkdtemp(prefix='delugeweb-')
@@ -736,6 +742,7 @@ class WebApi(JSONComponent):
                 filename = os.path.basename(torrent['path'])
                 with open(torrent['path'], 'rb') as _file:
                     fdump = b64encode(_file.read())
+                component.get('DelugeWeb').staged_files.remove(torrent['path'])
                 log.info(
                     'Adding torrent from file `%s` with options `%r`',
                     filename,
@@ -909,10 +916,12 @@ class WebApi(JSONComponent):
         component.get('Web.PluginManager').scan_for_plugins()
 
         if client.is_localhost():
+            component.get('DelugeWeb').staged_files.remove(path)
             client.core.rescan_plugins()
             return True
         with open(path, 'rb') as _file:
             plugin_data = b64encode(_file.read())
+        component.get('DelugeWeb').staged_files.remove(path)
 
         def on_upload_complete(*args):
             client.core.rescan_plugins()

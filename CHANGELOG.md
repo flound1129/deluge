@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Web UI: HTML-encode tracker status, tracker host filter, download folder and owner. A malicious tracker's failure or warning message could run script in the Web UI session.
 - Web UI: require a login for `/upload`, which let anyone write files to the temp dir.
+- Web UI: limit request bodies to 64 KiB without a session and 64 MiB with one. The limit is checked before the body is read, and a larger body gets 413 and the connection is closed. Files staged by `/upload` and `web.download_torrent_from_url` are limited to 1000 files and 256 MiB in total. They are removed when `web.add_torrents` or `web.upload_plugin` uses them, after 1 hour, and when the Web UI stops. A failed download no longer leaves a temp dir.
 - Web UI: set `HttpOnly`, `SameSite=Lax` and (over HTTPS) `Secure` on the session cookie, compare the password hash in constant time, and ignore an `X-Deluge-Base` header with unsafe characters.
 - Web UI: reject an expired session cookie on each request, start the session cleaner with the web server (it never ran), and end all other sessions when the password changes.
 - Web UI: do not write JSON request params to the debug log, because they can contain passwords. Keep `upload_plugin` file names inside the plugins dir.

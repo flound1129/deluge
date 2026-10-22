@@ -7,16 +7,20 @@
 #
 
 import json
+import os
+import tempfile
 from io import BytesIO
 
 import pytest
 import pytest_twisted
 from twisted.internet import defer, reactor
 from twisted.web.client import Agent, FileBodyProducer
+from twisted.web.error import Error
 from twisted.web.http_headers import Headers
 from twisted.web.static import File
 
 import deluge.component as component
+import deluge.ui.web.json_api
 
 from . import common
 from .common_web import WebServerTestBase
@@ -178,6 +182,25 @@ class TestWebAPI(WebServerTestBase):
         url = 'http://localhost:%d/%s' % (self.deluge_web.port, filename)
         res = yield self.deluge_web.web_api.download_torrent_from_url(url)
         assert res.endswith(filename)
+        assert res in self.deluge_web.staged_files.files
+
+    @pytest_twisted.inlineCallbacks
+    def test_download_torrent_from_url_failure(self, monkeypatch):
+        """S03: a failed download leaves no temp dir."""
+        tempdirs = []
+        mkdtemp = tempfile.mkdtemp
+
+        def record_mkdtemp(*args, **kwargs):
+            tempdirs.append(mkdtemp(*args, **kwargs))
+            return tempdirs[-1]
+
+        monkeypatch.setattr(deluge.ui.web.json_api.tempfile, 'mkdtemp', record_mkdtemp)
+        url = 'http://localhost:%d/missing.torrent' % self.deluge_web.port
+        with pytest.raises(Error):
+            yield self.deluge_web.web_api.download_torrent_from_url(url)
+        assert len(tempdirs) == 1
+        assert not os.path.exists(tempdirs[0])
+        assert not self.deluge_web.staged_files.files
 
     @pytest_twisted.inlineCallbacks
     def test_invalid_json(self):

@@ -144,6 +144,19 @@ class Auth(JSONComponent):
         s.update(password.encode('utf8'))
         return hmac.compare_digest(s.hexdigest(), config['pwd_sha1'])
 
+    def has_session(self, request):
+        """Return True if the request's session cookie names a current session.
+
+        Unlike check_request, this does not renew the session.
+        """
+        cookie_sess_id = request.getCookie(b'_session_id')
+        if not cookie_sess_id:
+            return False
+        session_id = get_session_id(cookie_sess_id.decode('utf8', 'replace'))
+        if session_id not in self.config['sessions']:
+            return False
+        return self.config['sessions'][session_id].get('expires', 0) >= time.time()
+
     def check_request(self, request, method=None, level=None):
         """
         Check to ensure that a request is authorised to call the specified

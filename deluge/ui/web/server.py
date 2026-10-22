@@ -13,10 +13,13 @@ import mimetypes
 import os
 import string
 import tempfile
+import time
+from io import BytesIO
 from pathlib import Path
 
 from twisted.application import internet, service
 from twisted.internet import defer, reactor
+from twisted.internet.task import LoopingCall
 from twisted.web import http, resource, server, static
 from twisted.web.resource import EncodingResourceWrapper
 
@@ -68,6 +71,18 @@ UI_CONFIG_KEYS = (
     'first_login',
 )
 
+# Request body limits. A client that is not logged in can only log in, which
+# needs little data. A logged-in client can upload torrent files and plugins, or
+# send a torrent file as base64 in a JSON request.
+MAX_UNAUTHENTICATED_BODY = 64 * 1024
+MAX_BODY = 64 * 1024 * 1024
+
+# Limits for files that /upload and web.download_torrent_from_url keep in the
+# temp dir until web.add_torrents or web.upload_plugin uses them.
+MAX_STAGED_FILES = 1000
+MAX_STAGED_BYTES = 256 * 1024 * 1024
+STAGED_FILE_TIMEOUT = 60 * 60
+
 
 def rpath(*paths):
     """Convert a relative path into an absolute path relative to the location
@@ -115,6 +130,112 @@ class MockGetText(resource.Resource):
         return b'function _(string) { return string; }'
 
 
+class WebRequest(server.Request):
+    """Refuse a request body that is larger than the client may send.
+
+    The check runs before Twisted stores the body, so a refused body does not
+    go into memory or a temp file.
+    """
+
+    max_body = MAX_BODY
+    body_size = 0
+    body_refused = False
+
+    def gotLength(self, length):  # NOQA: N802
+        if not component.get('Auth').has_session(self):
+            self.max_body = MAX_UNAUTHENTICATED_BODY
+        if length is not None and length > self.max_body:
+            self.content = BytesIO()
+            # Do not let the channel ask the client to send the body.
+            self.requestHeaders.removeHeader(b'Expect')
+            self.refuse_body()
+        else:
+            super().gotLength(length)
+
+    def handleContentChunk(self, data):  # NOQA: N802
+        self.body_size += len(data)
+        if self.body_size > self.max_body:
+            self.refuse_body()
+        if not self.body_refused:
+            super().handleContentChunk(data)
+
+    def requestReceived(self, command, path, version):  # NOQA: N802
+        if not self.body_refused:
+            super().requestReceived(command, path, version)
+
+    def refuse_body(self):
+        """Send 413 and close the connection, without reading the rest of the body."""
+        if self.body_refused:
+            return
+        self.body_refused = True
+        log.warning(
+            'Refused a request body larger than %s bytes (ClientIP %s)',
+            self.max_body,
+            self.getClientIP(),
+        )
+        self.channel.transport.write(
+            b'HTTP/1.1 413 Request Entity Too Large\r\n'
+            b'Connection: close\r\nContent-Length: 0\r\n\r\n'
+        )
+        self.channel.transport.loseConnection()
+
+
+class StagedFiles:
+    """Count the files staged for web.add_torrents and web.upload_plugin, and
+    remove them after use, after STAGED_FILE_TIMEOUT seconds and at shutdown.
+    """
+
+    def __init__(self, clock=time.monotonic):
+        self.clock = clock
+        # {path: (size, expires)}
+        self.files = {}
+        self.worker = LoopingCall(self.remove_expired)
+
+    def start(self):
+        if not self.worker.running:
+            self.worker.start(60)
+
+    def stop(self):
+        if self.worker.running:
+            self.worker.stop()
+        for path in list(self.files):
+            self.remove(path)
+
+    def has_room(self, count, size):
+        """Return True if ``count`` more files of ``size`` bytes in total fit."""
+        staged_size = sum(file_size for file_size, _expires in self.files.values())
+        return (
+            len(self.files) + count <= MAX_STAGED_FILES
+            and staged_size + size <= MAX_STAGED_BYTES
+        )
+
+    def add(self, path, size):
+        self.files[path] = (size, self.clock() + STAGED_FILE_TIMEOUT)
+
+    def remove(self, path):
+        """Remove ``path``, and its dir if it is empty, if ``path`` is staged.
+
+        Other paths come from the client and are not touched.
+        """
+        if self.files.pop(path, None) is None:
+            return
+        try:
+            os.remove(path)
+        except OSError as ex:
+            log.warning('Could not remove staged file %s: %s', path, ex)
+        try:
+            os.rmdir(os.path.dirname(path))
+        except OSError:
+            # Other staged files are still in the dir.
+            pass
+
+    def remove_expired(self):
+        now = self.clock()
+        for path, (_size, expires) in list(self.files.items()):
+            if expires <= now:
+                self.remove(path)
+
+
 class Upload(resource.Resource):
     """
     Twisted Web resource to handle file uploads
@@ -143,6 +264,13 @@ class Upload(resource.Resource):
         filenames = []
 
         if files:
+            staged_files = component.get('DelugeWeb').staged_files
+            if not staged_files.has_room(len(files), sum(map(len, files))):
+                log.warning('Upload refused, too many staged files')
+                request.setResponseCode(http.REQUEST_ENTITY_TOO_LARGE)
+                request.finish()
+                return server.NOT_DONE_YET
+
             tempdir = tempfile.mkdtemp(prefix='delugeweb-')
             log.debug('uploading files to %s', tempdir)
 
@@ -150,6 +278,7 @@ class Upload(resource.Resource):
                 fd, fn = tempfile.mkstemp('.torrent', dir=tempdir)
                 os.write(fd, upload)
                 os.close(fd)
+                staged_files.add(fn, len(upload))
                 filenames.append(fn)
 
             log.debug('uploaded %d file(s)', len(filenames))
@@ -747,7 +876,8 @@ class DelugeWeb(component.Component):
 
         # Remove twisted version number from 'server' http-header for security reasons
         server.version = 'TwistedWeb'
-        self.site = server.Site(self.top_level)
+        self.site = server.Site(self.top_level, requestFactory=WebRequest)
+        self.staged_files = StagedFiles()
         self.web_api = WebApi()
         self.web_utils = WebUtils()
 
@@ -796,6 +926,7 @@ class DelugeWeb(component.Component):
         component.get('Web').enable()
         # Nothing calls component.start() in the web UI, so start the session cleaner here.
         self.auth.start()
+        self.staged_files.start()
 
         if self.daemon:
             reactor.run()
@@ -832,6 +963,7 @@ class DelugeWeb(component.Component):
 
         self.plugins.disable_plugins()
         self.auth.stop()
+        self.staged_files.stop()
         log.debug('Saving configuration file')
         self.config.save()
 
