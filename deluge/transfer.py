@@ -151,13 +151,17 @@ class SquallTransferProtocol(Protocol):
             body = decompressor.decompress(data, self.max_message_size())
             if not decompressor.eof:
                 raise ValueError('message is truncated or exceeds the size limit')
-            self.message_received(rencode.loads(body, decode_utf8=True))
+            self.message_received(self.decode_message(body))
         except Exception as ex:
             log.warning(
                 'Failed to decompress (%d bytes) and load serialized data with rencode: %s',
                 len(data),
                 ex,
             )
+
+    def decode_message(self, body):
+        """Returns the object in a decompressed message body."""
+        return rencode.loads(body, decode_utf8=True)
 
     def get_bytes_recv(self):
         """

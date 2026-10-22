@@ -26,9 +26,16 @@ log = logging.getLogger(__name__)
 # Torrent files, tracker pages, icons and blocklists are far smaller. The cap stops
 # a hostile server from filling memory with an endless or highly compressed body.
 MAX_DOWNLOAD_SIZE = 256 * 1024 * 1024
+# Seconds with no response data before a download stops, so a server that stops
+# sending does not keep the download open. Slow but steady downloads continue.
+DOWNLOAD_IDLE_TIMEOUT = 60
 
 
 class DownloadTooLargeError(Exception):
+    pass
+
+
+class DownloadTimeoutError(Exception):
     pass
 
 
@@ -67,9 +74,10 @@ class BodyHandler(HTTPClientParser):
         self.data = b''
         self.encoding = encoding
         self.too_large = False
+        self.cancelled = False
 
     def dataReceived(self, data):  # NOQA: N802
-        if self.too_large:
+        if self.too_large or self.cancelled:
             return
         self.current_length += len(data)
         if self.current_length > MAX_DOWNLOAD_SIZE:
@@ -77,11 +85,23 @@ class BodyHandler(HTTPClientParser):
             self.data = b''
             self.transport.stopProducing()
             return
+        self.agent.reset_idle_timer()
         self.data += data
         if self.agent.part_callback:
             self.agent.part_callback(data, self.current_length, self.total_length)
 
+    def cancel(self):
+        """Stop reading the response, and do not write the file."""
+        self.cancelled = True
+        self.data = b''
+        self.transport.stopProducing()
+
     def connectionLost(self, reason):  # NOQA: N802
+        if self.cancelled:
+            # The finished Deferred has already failed with CancelledError.
+            self.state = 'DONE'
+            HTTPClientParser.connectionLost(self, reason)
+            return
         if self.too_large:
             self.state = 'DONE'
             self.finished.errback(
@@ -134,9 +154,22 @@ class HTTPDownloaderAgent:
         self.force_filename = force_filename
         self.allow_compression = allow_compression
         self.decoder = None
+        self.idle_timer = None
+        self.timed_out = False
+
+    def reset_idle_timer(self):
+        if self.idle_timer and self.idle_timer.active():
+            self.idle_timer.reset(DOWNLOAD_IDLE_TIMEOUT)
 
     def request_callback(self, response):
-        finished = Deferred()
+        self.reset_idle_timer()
+        body_handler = None
+
+        def cancel_body(finished):
+            if body_handler:
+                body_handler.cancel()
+
+        finished = Deferred(cancel_body)
 
         if not self.handle_redirect and response.code in (
             http.MOVED_PERMANENTLY,
@@ -186,9 +219,10 @@ class HTTPDownloaderAgent:
             encoding = None
             if cont_type.startswith('text/'):
                 encoding = params.get('charset', None)
-            response.deliverBody(
-                BodyHandler(response.request, finished, body_length, self, encoding)
+            body_handler = BodyHandler(
+                response.request, finished, body_length, self, encoding
             )
+            response.deliverBody(body_handler)
 
         return finished
 
@@ -214,8 +248,25 @@ class HTTPDownloaderAgent:
         d = self.agent.request(
             method=method, uri=uri, headers=headers, bodyProducer=body_producer
         )
+        self.idle_timer = reactor.callLater(
+            DOWNLOAD_IDLE_TIMEOUT, self._on_idle_timeout, d
+        )
         d.addCallback(self.request_callback)
+        d.addBoth(self._on_request_done)
         return d
+
+    def _on_idle_timeout(self, d):
+        self.timed_out = True
+        d.cancel()
+
+    def _on_request_done(self, result):
+        if self.idle_timer.active():
+            self.idle_timer.cancel()
+        if self.timed_out and isinstance(result, Failure):
+            return Failure(
+                DownloadTimeoutError(f'No data for {DOWNLOAD_IDLE_TIMEOUT} seconds')
+            )
+        return result
 
 
 def sanitise_filename(filename):

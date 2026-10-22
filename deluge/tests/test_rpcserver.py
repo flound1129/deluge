@@ -6,8 +6,12 @@
 # See LICENSE for more details.
 #
 
+import struct
+import zlib
 from unittest import mock
 
+import rencode
+from twisted.internet import task
 from twisted.internet.address import IPv4Address
 
 import deluge.component as component
@@ -120,6 +124,45 @@ class TestRPCServer(BaseTestCase):
                 assert self.login(username, 'wrong')[0] == rpcserver.RPC_ERROR
             msg = self.login(username, password)
             assert msg[0] == rpcserver.RPC_RESPONSE, str(msg)
+
+    def send_message(self, body):
+        body = zlib.compress(body)
+        self.protocol.dataReceived(struct.pack('!BI', 1, len(body)) + body)
+
+    def test_deeply_nested_message_is_dropped(self):
+        """S05: deep rencode nesting before login does not crash the daemon."""
+        with mock.patch.object(self.protocol, 'message_received') as message_received:
+            # 65000 nested lists are under the pre-login size limit, and are
+            # about 100 bytes compressed.
+            self.send_message(b'\xc1' * 65000 + b'\x00')
+            message_received.assert_not_called()
+
+            self.send_message(rencode.dumps(((1, 'daemon.info', [], {}),)))
+            message_received.assert_called_once()
+
+    def start_connection(self):
+        """Call connectionMade with a test clock. Returns the clock."""
+        clock = task.Clock()
+        self.patch(rpcserver, 'reactor', clock)
+        self.protocol.loseConnection = mock.Mock()
+        self.protocol.connectionMade()
+        return clock
+
+    def test_login_timeout(self):
+        """S05: a client that does not log in is disconnected."""
+        clock = self.start_connection()
+        clock.advance(rpcserver.LOGIN_TIMEOUT - 1)
+        self.protocol.loseConnection.assert_not_called()
+        clock.advance(1)
+        self.protocol.loseConnection.assert_called_once()
+
+    def test_login_stops_login_timeout(self):
+        self.authmanager = AuthManager()
+        clock = self.start_connection()
+        msg = self.login(*get_localhost_auth())
+        assert msg[0] == rpcserver.RPC_RESPONSE, str(msg)
+        clock.advance(rpcserver.LOGIN_TIMEOUT)
+        self.protocol.loseConnection.assert_not_called()
 
     def test_client_login_error(self):
         # This test causes error log prints while running the test...

@@ -16,6 +16,7 @@ from collections import namedtuple
 from types import FunctionType
 from typing import Callable, TypeVar, overload
 
+from rencode import rencode_orig
 from twisted.internet import defer, reactor
 from twisted.internet.protocol import Factory, connectionDone
 
@@ -45,6 +46,9 @@ RPC_EVENT = 3
 
 # daemon.info and daemon.login requests are tiny.
 MAX_UNAUTHENTICATED_MESSAGE_SIZE = 64 * 1024
+# Seconds a client has to log in after it connects. Clients log in at once, or
+# ask for daemon.info and disconnect.
+LOGIN_TIMEOUT = 60
 
 # Core and plugins define a few dozen events with names under 30 characters.
 MAX_EVENT_INTERESTS = 256
@@ -133,6 +137,14 @@ class SquallRPCProtocol(SquallTransferProtocol):
         super().__init__()
         # namedtuple subclass with auth_level, username for the connected session.
         self.AuthLevel = namedtuple('SessionAuthlevel', 'auth_level, username')
+        self._login_timer = None
+
+    def decode_message(self, body):
+        # The C decoder of rencode recurses once per nested list or dict, with no
+        # depth limit, so one small message from a client that is not logged in
+        # could overflow the C stack and crash the daemon. The Python decoder
+        # raises RecursionError instead. Requests are small, so its speed is fine.
+        return rencode_orig.loads(body, decode_utf8=True)
 
     def message_received(self, request):
         """
@@ -189,6 +201,21 @@ class SquallRPCProtocol(SquallTransferProtocol):
         self.factory.authorized_sessions[self.transport.sessionno] = self.AuthLevel(
             AUTH_LEVEL_NONE, ''
         )
+        self._login_timer = reactor.callLater(LOGIN_TIMEOUT, self._login_timed_out)
+
+    def _login_timed_out(self):
+        peer = self.transport.getPeer()
+        log.info(
+            'Closing connection from %s:%s: no login in %s seconds',
+            peer.host,
+            peer.port,
+            LOGIN_TIMEOUT,
+        )
+        self.transport.loseConnection()
+
+    def _stop_login_timer(self):
+        if self._login_timer and self._login_timer.active():
+            self._login_timer.cancel()
 
     def connectionLost(self, reason=connectionDone):  # NOQA: N802
         """
@@ -198,6 +225,7 @@ class SquallRPCProtocol(SquallTransferProtocol):
         :type reason: str
 
         """
+        self._stop_login_timer()
 
         # We need to remove this session from various dicts
         del self.factory.authorized_sessions[self.transport.sessionno]
@@ -302,6 +330,7 @@ class SquallRPCProtocol(SquallTransferProtocol):
                 ret = component.get('AuthManager').authorize(*args, **kwargs)
                 if ret:
                     login_limiter.success(peer.host)
+                    self._stop_login_timer()
                     self.factory.authorized_sessions[self.transport.sessionno] = (
                         self.AuthLevel(ret, args[0])
                     )

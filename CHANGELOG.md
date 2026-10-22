@@ -23,6 +23,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Daemon: an account removed from the `auth` file can no longer log in after the file is reloaded.
 - Daemon and Web UI: limit failed logins per client address. After 5 failed logins the address is blocked for 30 seconds, and each further failure doubles the block, up to 15 minutes. A login during a block is refused without a password check, so the daemon does not spend scrypt time on it. A good login resets the count, and so do 60 minutes with no failed login. IPv6 addresses count per /64. The Web UI also limits the old-password check in a password change. The Web UI shows a block as a failed login. Behind a reverse proxy, all Web UI clients share the proxy's address.
 - HTTP downloads (torrent URLs, tracker pages and icons, blocklists) stop at 256 MiB of decoded data, so a hostile server cannot exhaust memory.
+- HTTP downloads stop when no data arrives for 60 seconds, and write no partial file. Before, a server that stopped sending kept the download open with no end.
+- Daemon: decode RPC requests with the pure-Python rencode decoder. The C decoder has no nesting limit, so one message of about 100 bytes, sent before login, with 65,000 nested lists crashed `squalld` (segmentation fault). Now the message is refused and the daemon continues.
+- Daemon: close a connection that does not log in within 60 seconds.
 - Daemon: generate the localclient password with `secrets` and compare plaintext passwords in constant time.
 - Plugins are no longer put at the front of `sys.path`, so files in a writable plugin dir cannot shadow other modules.
 - Tracker icons: only decode ICO, PNG, GIF, JPEG and BMP with Pillow. GTK UI: escape tracker status before Pango markup.

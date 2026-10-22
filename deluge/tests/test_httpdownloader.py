@@ -16,11 +16,15 @@ from twisted.internet.error import CannotListenError
 from twisted.web.error import Error, PageRedirect
 from twisted.web.http import NOT_MODIFIED
 from twisted.web.resource import EncodingResourceWrapper, Resource
-from twisted.web.server import GzipEncoderFactory, Site
+from twisted.web.server import NOT_DONE_YET, GzipEncoderFactory, Site
 from twisted.web.util import redirectTo
 
 from deluge import httpdownloader
-from deluge.httpdownloader import DownloadTooLargeError, download_file
+from deluge.httpdownloader import (
+    DownloadTimeoutError,
+    DownloadTooLargeError,
+    download_file,
+)
 from deluge.log import setup_logger
 
 temp_dir = tempfile.mkdtemp()
@@ -112,9 +116,26 @@ class PartialDownloadResource(Resource):
         return ''
 
 
+class StallResource(Resource):
+    """Never finish the response. With ``body``, send the headers and part of
+    the body first."""
+
+    def __init__(self, body):
+        Resource.__init__(self)
+        self.body = body
+
+    def render(self, request):
+        if self.body:
+            request.setHeader(b'content-length', b'100')
+            request.write(b'abc')
+        return NOT_DONE_YET
+
+
 class TopLevelResource(Resource):
     def __init__(self):
         Resource.__init__(self)
+        self.putChild(b'stall_headers', StallResource(body=False))
+        self.putChild(b'stall_body', StallResource(body=True))
         self.putChild(b'cookie', CookieResource())
         self.putChild(b'gzip', GzipResource())
         self.redirect_rsrc = RedirectResource()
@@ -249,6 +270,14 @@ class TestDownloadFile:
             with pytest.raises(DownloadTooLargeError):
                 await download_file(url, fname('too_large_gzip'))
         assert not os.path.exists(fname('too_large_gzip'))
+
+    @pytest.mark.parametrize('path', ['stall_headers', 'stall_body'])
+    async def test_download_idle_timeout(self, path):
+        """S05: a server that stops sending does not keep the download open."""
+        with mock.patch.object(httpdownloader, 'DOWNLOAD_IDLE_TIMEOUT', 0.5):
+            with pytest.raises(DownloadTimeoutError):
+                await download_file(self.get_url(path), fname(path))
+        assert not os.path.exists(fname(path))
 
     async def test_page_redirect_unhandled(self):
         url = self.get_url('redirect')
