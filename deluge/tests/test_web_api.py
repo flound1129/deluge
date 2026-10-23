@@ -203,6 +203,65 @@ class TestWebAPI(WebServerTestBase):
         assert not self.deluge_web.staged_files.files
 
     @pytest_twisted.inlineCallbacks
+    def test_pending_url_download_reserves_staged_quota(self, monkeypatch):
+        """An in-flight URL download prevents a competing reservation."""
+        monkeypatch.setattr(deluge.ui.web.server, 'MAX_STAGED_BYTES', 10)
+        pending = defer.Deferred()
+        download_args = {}
+
+        def pending_download(url, filename, **kwargs):
+            download_args.update(url=url, filename=filename, **kwargs)
+            return pending
+
+        monkeypatch.setattr(
+            deluge.ui.web.json_api.httpdownloader,
+            'download_file',
+            pending_download,
+        )
+
+        first = self.deluge_web.web_api.download_torrent_from_url(
+            'http://example.test/first.torrent'
+        )
+        assert download_args['max_size'] == 10
+        assert len(self.deluge_web.staged_files.reservations) == 1
+
+        with pytest.raises(
+            deluge.ui.web.json_api.JSONException,
+            match='No room in staged file quota',
+        ):
+            self.deluge_web.web_api.download_torrent_from_url(
+                'http://example.test/second.torrent'
+            )
+
+        tempdir = os.path.dirname(download_args['filename'])
+        pending.errback(RuntimeError('download failed'))
+        with pytest.raises(RuntimeError, match='download failed'):
+            yield first
+        assert not self.deluge_web.staged_files.reservations
+        assert not os.path.exists(tempdir)
+
+    def test_url_download_setup_failure_releases_reservation(self, monkeypatch):
+        download_args = {}
+
+        def fail_download(url, filename, **kwargs):
+            download_args.update(url=url, filename=filename, **kwargs)
+            raise RuntimeError('setup failed')
+
+        monkeypatch.setattr(
+            deluge.ui.web.json_api.httpdownloader,
+            'download_file',
+            fail_download,
+        )
+
+        with pytest.raises(RuntimeError, match='setup failed'):
+            self.deluge_web.web_api.download_torrent_from_url(
+                'http://example.test/setup-failure.torrent'
+            )
+
+        assert not self.deluge_web.staged_files.reservations
+        assert not os.path.exists(os.path.dirname(download_args['filename']))
+
+    @pytest_twisted.inlineCallbacks
     def test_download_torrent_from_url_staged_byte_limit(self, monkeypatch, tmp_path):
         """S03: a downloaded file cannot exceed the aggregate staged quota."""
         filename = 'ubuntu-9.04-desktop-i386.iso.torrent'

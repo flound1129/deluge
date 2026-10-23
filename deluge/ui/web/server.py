@@ -189,6 +189,8 @@ class StagedFiles:
         self.clock = clock
         # {path: (size, expires)}
         self.files = {}
+        # {opaque token: maximum downloaded size}
+        self.reservations = {}
         self.worker = LoopingCall(self.remove_expired)
 
     def start(self):
@@ -198,16 +200,47 @@ class StagedFiles:
     def stop(self):
         if self.worker.running:
             self.worker.stop()
+        self.reservations.clear()
         for path in list(self.files):
             self.remove(path)
 
     def has_room(self, count, size):
         """Return True if ``count`` more files of ``size`` bytes in total fit."""
         staged_size = sum(file_size for file_size, _expires in self.files.values())
+        reserved_size = sum(self.reservations.values())
         return (
-            len(self.files) + count <= MAX_STAGED_FILES
-            and staged_size + size <= MAX_STAGED_BYTES
+            len(self.files) + len(self.reservations) + count <= MAX_STAGED_FILES
+            and staged_size + reserved_size + size <= MAX_STAGED_BYTES
         )
+
+    def available_bytes(self):
+        """Return unreserved space under the aggregate staged byte limit."""
+        staged_size = sum(file_size for file_size, _expires in self.files.values())
+        return max(0, MAX_STAGED_BYTES - staged_size - sum(self.reservations.values()))
+
+    def reserve(self, size):
+        """Reserve one staged-file slot and ``size`` bytes, returning a token."""
+        if size < 0:
+            raise ValueError('Reservation size must be non-negative')
+        if not self.has_room(1, size):
+            return None
+        reservation = object()
+        self.reservations[reservation] = size
+        return reservation
+
+    def release(self, reservation):
+        """Release an in-flight reservation, if it is still active."""
+        self.reservations.pop(reservation, None)
+
+    def commit(self, reservation, path, size):
+        """Replace an in-flight reservation with its completed staged file."""
+        reserved_size = self.reservations.get(reservation)
+        if reserved_size is None:
+            raise ValueError('Unknown staged-file reservation')
+        if size > reserved_size:
+            raise ValueError('Staged file exceeds its reservation')
+        self.add(path, size)
+        del self.reservations[reservation]
 
     def add(self, path, size):
         self.files[path] = (size, self.clock() + STAGED_FILE_TIMEOUT)

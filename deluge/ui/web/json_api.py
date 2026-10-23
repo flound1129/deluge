@@ -657,28 +657,49 @@ class WebApi(JSONComponent):
         if not staged_files.has_room(1, 0):
             raise JSONException('Too many staged files')
 
+        reservation_size = staged_files.available_bytes()
+        if reservation_size == 0:
+            raise JSONException('No room in staged file quota')
+        reservation = staged_files.reserve(reservation_size)
+        if reservation is None:
+            raise JSONException('No room in staged file quota')
+
         def on_download_success(result):
             log.debug('Successfully downloaded %s to %s', url, result)
-            file_size = os.path.getsize(result)
-            if not staged_files.has_room(1, file_size):
+            try:
+                file_size = os.path.getsize(result)
+                staged_files.commit(reservation, result, file_size)
+            except Exception:
+                staged_files.release(reservation)
                 shutil.rmtree(tempdir, ignore_errors=True)
-                raise JSONException('Downloaded torrent exceeds staged file quota')
-            staged_files.add(result, file_size)
+                raise
             return result
 
         def on_download_fail(result):
             log.error('Failed to add torrent from url %s', url)
+            staged_files.release(reservation)
             shutil.rmtree(tempdir, ignore_errors=True)
+            if result.check(httpdownloader.DownloadTooLargeError):
+                raise JSONException('Downloaded torrent exceeds staged file quota')
             return result
 
-        tempdir = tempfile.mkdtemp(prefix='delugeweb-')
-        tmp_file = os.path.join(tempdir, url.split('/')[-1])
-        log.debug('filename: %s', tmp_file)
-        headers = {}
-        if cookie:
-            headers['Cookie'] = cookie
-            log.debug('cookie: %s', cookie)
-        d = httpdownloader.download_file(url, tmp_file, headers=headers)
+        tempdir = None
+        try:
+            tempdir = tempfile.mkdtemp(prefix='delugeweb-')
+            tmp_file = os.path.join(tempdir, url.split('/')[-1])
+            log.debug('filename: %s', tmp_file)
+            headers = {}
+            if cookie:
+                headers['Cookie'] = cookie
+                log.debug('cookie: %s', cookie)
+            d = httpdownloader.download_file(
+                url, tmp_file, headers=headers, max_size=reservation_size
+            )
+        except Exception:
+            staged_files.release(reservation)
+            if tempdir is not None:
+                shutil.rmtree(tempdir, ignore_errors=True)
+            raise
         d.addCallbacks(on_download_success, on_download_fail)
         return d
 

@@ -111,6 +111,36 @@ class TestStagedFiles:
         assert not staged_files.has_room(1, 5)
         assert not staged_files.has_room(2, 0)
 
+    def test_reservation_counts_toward_quota_and_commits(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(deluge.ui.web.server, 'MAX_STAGED_FILES', 2)
+        monkeypatch.setattr(deluge.ui.web.server, 'MAX_STAGED_BYTES', 10)
+        staged_files = StagedFiles()
+        existing = self.stage(staged_files, tmp_path, 'existing')
+
+        reservation = staged_files.reserve(6)
+        assert reservation is not None
+        assert staged_files.available_bytes() == 0
+        assert not staged_files.has_room(1, 0)
+
+        downloaded = tmp_path / 'downloaded.torrent'
+        downloaded.write_bytes(b'data')
+        staged_files.commit(reservation, str(downloaded), 4)
+
+        assert reservation not in staged_files.reservations
+        assert staged_files.available_bytes() == 2
+        assert set(staged_files.files) == {str(existing), str(downloaded)}
+
+    def test_release_reservation_restores_quota(self, monkeypatch):
+        monkeypatch.setattr(deluge.ui.web.server, 'MAX_STAGED_FILES', 1)
+        monkeypatch.setattr(deluge.ui.web.server, 'MAX_STAGED_BYTES', 10)
+        staged_files = StagedFiles()
+
+        reservation = staged_files.reserve(10)
+        assert reservation is not None
+        assert not staged_files.has_room(1, 0)
+        staged_files.release(reservation)
+        assert staged_files.has_room(1, 10)
+
 
 class TestWebServer(WebServerTestBase, WebServerMockBase):
     def test_session_cleaner_runs(self):

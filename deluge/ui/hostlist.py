@@ -152,9 +152,15 @@ class HostList:
 
         validate_host_info(hostname, port)
         self.check_info_exists(hostname, port, username)
+        endpoint_exists = any(
+            (host_entry[1], host_entry[2]) == (hostname, port)
+            for host_entry in self.config['hosts']
+        )
         host_id = uuid.uuid4().hex
         self.config['hosts'].append((host_id, hostname, port, username, password))
-        self.config.save()
+        saved = self.config.save()
+        if saved and not endpoint_exists:
+            daemon_certs.forget(hostname, port)
         return host_id
 
     def get_host_info(self, host_id):

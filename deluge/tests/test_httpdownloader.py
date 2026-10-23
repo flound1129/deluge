@@ -264,6 +264,37 @@ class TestDownloadFile:
                 await download_file(self.get_url(), fname('too_large'))
         assert not os.path.exists(fname('too_large'))
 
+    async def test_download_per_request_size_limit(self):
+        with pytest.raises(
+            DownloadTooLargeError, match='Download is larger than 10 bytes'
+        ):
+            await download_file(
+                self.get_url(), fname('per_request_too_large'), max_size=10
+            )
+        assert not os.path.exists(fname('per_request_too_large'))
+
+    async def test_local_write_failure_errbacks_and_cleans_up_parser(self, monkeypatch):
+        cleanup_calls = []
+        parser_connection_lost = httpdownloader.HTTPClientParser.connectionLost
+
+        def record_cleanup(parser, reason):
+            cleanup_calls.append(reason)
+            return parser_connection_lost(parser, reason)
+
+        def fail_open(*args, **kwargs):
+            raise OSError('local write failed')
+
+        monkeypatch.setattr(
+            httpdownloader.HTTPClientParser, 'connectionLost', record_cleanup
+        )
+        monkeypatch.setattr(httpdownloader, 'open', fail_open, raising=False)
+
+        download = download_file(self.get_url(), fname('write_failure'))
+        download.addTimeout(1, reactor)
+        with pytest.raises(OSError, match='local write failed'):
+            await download
+        assert len(cleanup_calls) == 1
+
     async def test_download_too_large_after_gzip_decoding(self):
         url = self.get_url('gzip?msg=' + 'A' * 1000)
         with mock.patch.object(httpdownloader, 'MAX_DOWNLOAD_SIZE', 500):

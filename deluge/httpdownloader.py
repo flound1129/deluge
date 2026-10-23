@@ -80,7 +80,7 @@ class BodyHandler(HTTPClientParser):
         if self.too_large or self.cancelled:
             return
         self.current_length += len(data)
-        if self.current_length > MAX_DOWNLOAD_SIZE:
+        if self.current_length > self.agent.max_size:
             self.too_large = True
             self.data = b''
             self.transport.stopProducing()
@@ -97,29 +97,31 @@ class BodyHandler(HTTPClientParser):
         self.transport.stopProducing()
 
     def connectionLost(self, reason):  # NOQA: N802
-        if self.cancelled:
-            # The finished Deferred has already failed with CancelledError.
-            self.state = 'DONE'
-            HTTPClientParser.connectionLost(self, reason)
-            return
-        if self.too_large:
-            self.state = 'DONE'
-            self.finished.errback(
-                Failure(
-                    DownloadTooLargeError(
-                        f'Download is larger than {MAX_DOWNLOAD_SIZE} bytes'
+        self.state = 'DONE'
+        try:
+            if self.cancelled:
+                # The finished Deferred has already failed with CancelledError.
+                return
+            if self.too_large:
+                self.finished.errback(
+                    Failure(
+                        DownloadTooLargeError(
+                            f'Download is larger than {self.agent.max_size} bytes'
+                        )
                     )
                 )
-            )
+                return
+            try:
+                if self.encoding:
+                    self.data = self.data.decode(self.encoding).encode('utf8')
+                with open(self.agent.filename, 'wb') as _file:
+                    _file.write(self.data)
+            except Exception:
+                self.finished.errback(Failure())
+            else:
+                self.finished.callback(self.agent.filename)
+        finally:
             HTTPClientParser.connectionLost(self, reason)
-            return
-        if self.encoding:
-            self.data = self.data.decode(self.encoding).encode('utf8')
-        with open(self.agent.filename, 'wb') as _file:
-            _file.write(self.data)
-        self.finished.callback(self.agent.filename)
-        self.state = 'DONE'
-        HTTPClientParser.connectionLost(self, reason)
 
 
 @implementer(IAgent)
@@ -134,6 +136,7 @@ class HTTPDownloaderAgent:
         force_filename=False,
         allow_compression=True,
         handle_redirect=True,
+        max_size=None,
     ):
         """HTTPDownloaderAgent init.
 
@@ -145,7 +148,14 @@ class HTTPDownloaderAgent:
             part_callback (func): A function to be called when a part of data
                 is received, it's signature should be:
                     func(data, current_length, total_length)
+            max_size (int): Maximum decoded response size in bytes. Defaults
+                to ``MAX_DOWNLOAD_SIZE``.
         """
+
+        if max_size is None:
+            max_size = MAX_DOWNLOAD_SIZE
+        if max_size < 0:
+            raise ValueError('max_size must be non-negative')
 
         self.handle_redirect = handle_redirect
         self.agent = agent
@@ -153,6 +163,7 @@ class HTTPDownloaderAgent:
         self.part_callback = part_callback
         self.force_filename = force_filename
         self.allow_compression = allow_compression
+        self.max_size = max_size
         self.decoder = None
         self.idle_timer = None
         self.timed_out = False
@@ -309,6 +320,7 @@ def _download_file(
     force_filename=False,
     allow_compression=True,
     handle_redirects=True,
+    max_size=None,
 ):
     """Downloads a file from a specific URL and returns a Deferred.
 
@@ -323,6 +335,8 @@ def _download_file(
         force_filename (bool): Force using the filename specified rather than
             one the server may suggest.
         allow_compression (bool): Allows gzip & deflate decoding.
+        max_size (int): Maximum decoded response size in bytes. Defaults to
+            ``MAX_DOWNLOAD_SIZE``.
 
     Returns:
         Deferred: The filename of the downloaded file.
@@ -342,7 +356,13 @@ def _download_file(
         agent = client.RedirectAgent(agent)
 
     agent = HTTPDownloaderAgent(
-        agent, filename, callback, force_filename, allow_compression, handle_redirects
+        agent,
+        filename,
+        callback,
+        force_filename,
+        allow_compression,
+        handle_redirects,
+        max_size,
     )
 
     # The Headers init expects dict values to be a list.
@@ -362,6 +382,7 @@ def download_file(
     force_filename=False,
     allow_compression=True,
     handle_redirects=True,
+    max_size=None,
 ):
     """Downloads a file from a specific URL and returns a Deferred.
 
@@ -377,6 +398,8 @@ def download_file(
             server may suggest.
         allow_compression (bool): Allows gzip & deflate decoding.
         handle_redirects (bool): HTTP redirects handled automatically or not.
+        max_size (int): Maximum decoded response size in bytes. Defaults to
+            ``MAX_DOWNLOAD_SIZE``.
 
     Returns:
         Deferred: The filename of the downloaded file.
@@ -407,6 +430,7 @@ def download_file(
         force_filename=force_filename,
         allow_compression=allow_compression,
         handle_redirects=handle_redirects,
+        max_size=max_size,
     )
     d.addCallbacks(on_download_success, on_download_fail)
     return d

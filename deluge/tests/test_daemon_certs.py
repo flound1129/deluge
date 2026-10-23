@@ -98,6 +98,53 @@ def test_failed_host_removal_save_keeps_pin(monkeypatch):
     forget.assert_not_called()
 
 
+def test_readd_after_failed_pin_reset_retries_forget(monkeypatch):
+    hostlist = HostList()
+    host_id, hostname, port = hostlist.config['hosts'][0][:3]
+    daemon_certs.check(hostname, port, 'AA:BB')
+    original_load = daemon_certs._load
+    fail_next_save = True
+
+    def load_with_one_failed_save():
+        nonlocal fail_next_save
+        config = original_load()
+        if fail_next_save:
+            config.save = Mock(return_value=False)
+            fail_next_save = False
+        return config
+
+    monkeypatch.setattr(daemon_certs, '_load', load_with_one_failed_save)
+
+    with pytest.raises(OSError, match='Unable to save daemon certificate pins'):
+        hostlist.remove_host(host_id)
+
+    assert daemon_certs.get(hostname, port) == 'AA:BB'
+    hostlist.add_host(hostname, port, 'retry-user', 'retry-password')
+    assert daemon_certs.get(hostname, port) is None
+
+
+def test_add_duplicate_endpoint_keeps_shared_pin(monkeypatch):
+    hostlist = HostList()
+    _, hostname, port = hostlist.config['hosts'][0][:3]
+    forget = Mock()
+    monkeypatch.setattr(daemon_certs, 'forget', forget)
+
+    hostlist.add_host(hostname, port, 'other-user', 'other-password')
+
+    forget.assert_not_called()
+
+
+def test_failed_host_add_save_keeps_pin(monkeypatch):
+    hostlist = HostList()
+    monkeypatch.setattr(hostlist.config, 'save', Mock(return_value=False))
+    forget = Mock()
+    monkeypatch.setattr(daemon_certs, 'forget', forget)
+
+    hostlist.add_host('127.0.0.1', 58847, 'user', 'password')
+
+    forget.assert_not_called()
+
+
 def test_protocol_reports_connected_only_after_tls_handshake():
     connect_deferred = defer.Deferred()
     daemon = Mock(connect_deferred=connect_deferred, connected=False)
