@@ -27,6 +27,10 @@ class DaemonRunningError(DelugeError):
     pass
 
 
+class DaemonCertificateError(DelugeError):
+    pass
+
+
 class InvalidTorrentError(DelugeError):
     pass
 

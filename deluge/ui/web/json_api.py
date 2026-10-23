@@ -659,7 +659,11 @@ class WebApi(JSONComponent):
 
         def on_download_success(result):
             log.debug('Successfully downloaded %s to %s', url, result)
-            staged_files.add(result, os.path.getsize(result))
+            file_size = os.path.getsize(result)
+            if not staged_files.has_room(1, file_size):
+                shutil.rmtree(tempdir, ignore_errors=True)
+                raise JSONException('Downloaded torrent exceeds staged file quota')
+            staged_files.add(result, file_size)
             return result
 
         def on_download_fail(result):

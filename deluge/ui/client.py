@@ -10,12 +10,16 @@
 import logging
 import subprocess
 
+from OpenSSL import SSL
 from twisted.internet import defer, reactor, ssl
+from twisted.internet.interfaces import IHandshakeListener
 from twisted.internet.protocol import ClientFactory
+from zope.interface import implementer
 
 from deluge import error
 from deluge.common import VersionSplit, get_localhost_auth, get_version
 from deluge.transfer import SquallTransferProtocol
+from deluge.ui import daemon_certs
 
 RPC_RESPONSE = 1
 RPC_ERROR = 2
@@ -75,11 +79,19 @@ class DelugeRPCRequest:
         return (self.request_id, self.method, self.args, self.kwargs)
 
 
+@implementer(IHandshakeListener)
 class SquallRPCProtocol(SquallTransferProtocol):
     def connectionMade(self):  # NOQA: N802
         self.__rpc_requests = {}
         # Set the protocol in the daemon so it can send data
         self.factory.daemon.protocol = self
+
+    def handshakeCompleted(self):  # NOQA: N802
+        # The TLS handshake checks the daemon certificate, so the connection is
+        # only made now. Before, nothing (no password) is sent.
+        # Twisted also reports TLS renegotiation through this callback.
+        if self.factory.daemon.connect_deferred.called:
+            return
         # Get the address of the daemon that we've connected to
         peer = self.transport.getPeer()
         self.factory.daemon.host = peer.host
@@ -213,7 +225,7 @@ class SquallRPCClientFactory(ClientFactory):
             connector.port,
             reason.value,
         )
-        self.daemon.connect_deferred.errback(reason)
+        self.daemon.connect_deferred.errback(self.daemon.certificate_error or reason)
 
     def clientConnectionLost(self, connector, reason):  # NOQA: N802
         log.debug(
@@ -222,6 +234,12 @@ class SquallRPCClientFactory(ClientFactory):
             connector.port,
             reason.value,
         )
+        if not self.daemon.connect_deferred.called:
+            # The TLS handshake did not complete, for example because the
+            # daemon certificate is not the pinned one.
+            self.daemon.connect_deferred.errback(
+                self.daemon.certificate_error or reason
+            )
         self.daemon.host = None
         self.daemon.port = None
         self.daemon.username = None
@@ -237,6 +255,60 @@ class SquallRPCClientFactory(ClientFactory):
 
         if self.daemon.disconnect_callback:
             self.daemon.disconnect_callback()
+
+
+class PinnedClientContextFactory(ssl.ClientContextFactory):
+    """TLS context that checks the daemon certificate against its pin.
+
+    See :mod:`deluge.ui.daemon_certs`. A certificate that is not the pinned one
+    stops the TLS handshake, before the client sends a request or a password.
+    """
+
+    def __init__(self, daemon, host, port):
+        self.daemon = daemon
+        self.host = host
+        self.port = port
+
+    def getContext(self):  # NOQA: N802
+        ctx = super().getContext()
+        ctx.set_verify(SSL.VERIFY_PEER, self._verify)
+        return ctx
+
+    def _verify(self, connection, cert, errno, depth, preverify_ok):
+        if depth > 0:
+            # Only the daemon's own certificate is pinned.
+            return True
+        fingerprint = cert.digest('sha256').decode()
+        try:
+            certificate_matches = daemon_certs.check(self.host, self.port, fingerprint)
+        except Exception as ex:
+            log.error(
+                'Unable to check the certificate of the daemon at %s:%s: %s',
+                self.host,
+                self.port,
+                ex,
+            )
+            self.daemon.certificate_error = error.DaemonCertificateError(
+                f'Could not securely save or check the certificate of the daemon '
+                f'at {self.host}:{self.port}. No RPC data or password was sent.'
+            )
+            return False
+        if certificate_matches:
+            return True
+        log.error(
+            'The certificate of the daemon at %s:%s is not the pinned one: %s',
+            self.host,
+            self.port,
+            fingerprint,
+        )
+        self.daemon.certificate_error = error.DaemonCertificateError(
+            f'The certificate of the daemon at {self.host}:{self.port} changed. '
+            f'New SHA-256 fingerprint: {fingerprint}. '
+            'Someone could be listening between you and the daemon. If you know '
+            'that the daemon has a new certificate, remove every saved entry '
+            'for this host and port from the connection manager, then add it again.'
+        )
+        return False
 
 
 class DaemonProxy:
@@ -283,8 +355,12 @@ class DaemonSSLProxy(DaemonProxy):
         log.debug('sslproxy.connect()')
         self.host = host
         self.port = port
+        self.certificate_error = None
         self.__connector = reactor.connectSSL(
-            self.host, self.port, self.__factory, ssl.ClientContextFactory()
+            self.host,
+            self.port,
+            self.__factory,
+            PinnedClientContextFactory(self, host, port),
         )
         self.connect_deferred = defer.Deferred()
         self.daemon_info_deferred = defer.Deferred()

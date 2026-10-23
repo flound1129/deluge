@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Daemon: decode RPC requests with the pure-Python rencode decoder. The C decoder has no nesting limit, so one message of about 100 bytes, sent before login, with 65,000 nested lists crashed `squalld` (segmentation fault). Now the message is refused and the daemon continues.
 - Daemon: close a connection that does not log in within 60 seconds.
 - Daemon: generate the localclient password with `secrets` and compare plaintext passwords in constant time.
+- UI clients: pin each daemon's self-signed TLS certificate on first use and refuse a changed certificate before sending RPC data or a password. Removing the last saved entry for a host and port resets its pin. The first connection remains vulnerable to interception unless its fingerprint is verified out of band.
 - Plugins are no longer put at the front of `sys.path`, so files in a writable plugin dir cannot shadow other modules.
 - Tracker icons: only decode ICO, PNG, GIF, JPEG and BMP with Pillow. GTK UI: escape tracker status before Pango markup.
 - Notifications: refuse to send the SMTP password when TLS is enabled but the server does not offer STARTTLS, and verify the server certificate.

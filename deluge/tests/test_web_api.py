@@ -203,6 +203,41 @@ class TestWebAPI(WebServerTestBase):
         assert not self.deluge_web.staged_files.files
 
     @pytest_twisted.inlineCallbacks
+    def test_download_torrent_from_url_staged_byte_limit(self, monkeypatch, tmp_path):
+        """S03: a downloaded file cannot exceed the aggregate staged quota."""
+        filename = 'ubuntu-9.04-desktop-i386.iso.torrent'
+        torrent_path = common.get_test_data_file(filename)
+        self.deluge_web.top_level.putChild(filename.encode(), File(torrent_path))
+
+        existing_path = tmp_path / 'existing.torrent'
+        existing_path.write_bytes(b'x')
+        self.deluge_web.staged_files.add(str(existing_path), 1)
+        monkeypatch.setattr(
+            deluge.ui.web.server,
+            'MAX_STAGED_BYTES',
+            os.path.getsize(torrent_path),
+        )
+
+        tempdirs = []
+        mkdtemp = tempfile.mkdtemp
+
+        def record_mkdtemp(*args, **kwargs):
+            tempdirs.append(mkdtemp(*args, **kwargs))
+            return tempdirs[-1]
+
+        monkeypatch.setattr(deluge.ui.web.json_api.tempfile, 'mkdtemp', record_mkdtemp)
+        url = 'http://localhost:%d/%s' % (self.deluge_web.port, filename)
+        with pytest.raises(
+            deluge.ui.web.json_api.JSONException,
+            match='Downloaded torrent exceeds staged file quota',
+        ):
+            yield self.deluge_web.web_api.download_torrent_from_url(url)
+
+        assert len(tempdirs) == 1
+        assert not os.path.exists(tempdirs[0])
+        assert set(self.deluge_web.staged_files.files) == {str(existing_path)}
+
+    @pytest_twisted.inlineCallbacks
     def test_invalid_json(self):
         """
         If json_api._send_response does not return server.NOT_DONE_YET

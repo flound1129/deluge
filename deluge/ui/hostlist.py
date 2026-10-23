@@ -16,6 +16,7 @@ from twisted.internet import defer, threads
 from deluge.common import get_localhost_auth
 from deluge.config import Config
 from deluge.configmanager import get_config_dir
+from deluge.ui import daemon_certs
 from deluge.ui.client import Client, client
 
 log = logging.getLogger(__name__)
@@ -296,7 +297,13 @@ class HostList:
         for host_entry in self.config['hosts']:
             if host_id == host_entry[0]:
                 self.config['hosts'].remove(host_entry)
-                self.config.save()
+                saved = self.config.save()
+                hostname, port = host_entry[1:3]
+                if saved and not any(
+                    (entry[1], entry[2]) == (hostname, port)
+                    for entry in self.config['hosts']
+                ):
+                    daemon_certs.forget(hostname, port)
                 return True
         else:
             return False
