@@ -1,6 +1,7 @@
 # Squall whole-codebase remote security audit
 
 - **Date:** 2026-10-22
+- **Updated:** 2026-10-23
 - **Repository:** `flound1129/deluge`, branch `squall`
 - **Commit audited:** `86e66e5ad` (`86e66e5adee6d4b8e5d465d14fedfb617c64fc55`)
 - **Previous audit:** `SECURITY-FINDINGS-2026-10-22.md`
@@ -8,14 +9,15 @@
 
 ## Result
 
-I found no new unauthenticated pre-login remote-code-execution path or authentication bypass in the daemon or Web UI. The framing and decoded-message limits, login timeout and limiter, RPC authorization dispatch, Web request limits, session expiry, staged-file quotas and daemon certificate pinning held up in this review.
+I found no new parser-level pre-authentication remote-code-execution path or authentication bypass in the daemon or Web UI. The framing and decoded-message limits, login timeout and limiter, RPC authorization dispatch, Web request limits, session expiry, staged-file quotas and daemon certificate pinning held up in this review.
 
-I found 12 remotely relevant issues or capabilities. Most require an authenticated NORMAL daemon account or Web UI session; others depend on malicious network content, an enabled plugin or a hostile daemon. The existing default Web UI exposure (`0.0.0.0:8112`, HTTP, password `deluge`) remains the most practical unauthenticated entry point if an operator has not changed it.
+I found 13 remotely relevant issues or capabilities. Most require an authenticated NORMAL daemon account or Web UI session; others depend on malicious network content, an enabled plugin or a hostile daemon. Authenticated Web access is equivalent to arbitrary code execution through plugin management. The existing default Web UI exposure (`0.0.0.0:8112`, HTTP, password `deluge`) therefore becomes a practical critical RCE path if an operator has not changed it.
 
 ## Findings
 
 | ID  | Severity          | Finding                                                               | Attacker prerequisite                                               | Confidence  |
 | --- | ----------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------- | ----------- |
+| R13 | Critical/High     | Web sessions can reach arbitrary Python plugin execution              | Web session plus ADMIN daemon connection or local-daemon bootstrap  | Confirmed   |
 | R01 | High              | Hostile daemon data reaches Web UI HTML sinks                         | Controls a connected daemon, or wins the first TOFU connection      | Confirmed   |
 | R02 | High              | NORMAL accounts can retrieve proxy and SMTP credentials               | Authenticated NORMAL daemon account or authenticated Web UI session | Confirmed   |
 | R03 | High (integrity)  | `core.create_torrent` overwrites an arbitrary daemon-writable path    | Authenticated NORMAL daemon account                                 | Confirmed   |
@@ -29,6 +31,19 @@ I found 12 remotely relevant issues or capabilities. Most require an authenticat
 | R11 | Low/Medium        | GTK uses attacker-controlled text as Pango markup                     | Malicious torrent/daemon data and a GTK UI action                   | Confirmed   |
 | R12 | Low, conditional  | Same-site request forgery can consume the staged-upload quota         | Controls a same-site origin while a Web session is active           | Confirmed   |
 
+### R13: authenticated Web access is an OS code-execution boundary
+
+Arbitrary Python plugins are intentionally executable code. The issue is not a plugin sandbox escape: the Web UI makes plugin installation and daemon bootstrap available to every authenticated Web session, while the default deployment exposes that session behind a public, fixed password. Execution requires either an ADMIN connection to the configured daemon or the ability to start and connect to a local daemon.
+
+- Successful Web login creates an ADMIN-level Web session at `deluge/ui/web/auth.py:129-133,291-314`.
+- Authenticated `POST /upload` accepts arbitrary bytes at `deluge/ui/web/server.py:272-321`. For a local daemon, `web.upload_plugin` copies the staged egg into the shared Web plugin directory and asks the daemon to rescan; for a remote daemon it forwards the bytes through `core.upload_plugin` (`deluge/ui/web/json_api.py:933-962`).
+- `core.upload_plugin` and `core.enable_plugin` are ADMIN-only at `deluge/core/core.py:924-935,1114-1137`. Plugin loading imports the egg entry point and calls its initialization and enable paths at `deluge/pluginmanagerbase.py:77-83,353-447`. Attacker-supplied Python therefore executes as the daemon account without a restart.
+- The normal local Web configuration connects with `localclient`, which is an ADMIN daemon identity. An authenticated Web user can also call `web.start_daemon` at `deluge/ui/web/json_api.py:856-861`, add and connect to that host, and have local blank credentials replaced with `localclient` credentials at `deluge/ui/hostlist.py:136-164`. This bootstrap requires `squalld` to be installed, an available port and a writable configuration directory. A core plugin then executes on the daemon host; local bootstrap makes that the Web host. A matching Web plugin entry point can also execute in the Web process.
+
+This is Critical when the remotely bound Web UI retains the documented default password `deluge`, because anyone who knows the public default can obtain the required session and a typical installation satisfies the local-bootstrap prerequisites. It is High with strong Web credentials because compromise of a Web account can still reach administrator-equivalent code execution. A Web session connected only to a remote NORMAL daemon cannot install or enable a plugin on that daemon. Direct daemon ADMIN plugin installation is an intentional code-execution capability and should be documented as such.
+
+Disabling all plugins is not required to address the remote exposure, but arbitrary Python plugins cannot be made safe for an untrusted administrator. Treat plugin upload and enable, `web.start_daemon`, local-host credential substitution and host management as privileged operations. Either restrict them to a separate administrator role with reauthentication and per-session daemon credentials, or explicitly define every Web login as full OS-code-execution authority and secure it accordingly. Bind new Web installations to loopback, require a unique first-run password, and require TLS or a trusted reverse proxy before remote access. A deployment that does not need remote plugin management can disable those Web methods while retaining preinstalled plugins.
+
 ### R01: hostile daemon data reaches Web UI HTML sinks
 
 The Web UI treats several daemon-returned strings as HTML:
@@ -36,7 +51,7 @@ The Web UI treats several daemon-returned strings as HTML:
 - `AboutWindow.js:39-66` concatenates the daemon and libtorrent version strings into `comment`; line 42 calls `setText(comment, false)`, explicitly disabling encoding.
 - `StatusTab.js:149-150` assigns fields through `innerHTML`, and lines 152-153 pass attacker-controlled `status.state` as the progress-bar text. `status.seed_rank` is normally numeric, but a hostile daemon can violate that expected type before it reaches the same sink.
 
-A hostile or compromised daemon can return an element with an event handler and execute JavaScript in the Web UI origin when the relevant view opens. The session cookie is HttpOnly, but injected JavaScript can make same-origin JSON calls and act with the victim's Web session. A first-connection machine in the middle can do the same because TOFU cannot authenticate that first connection.
+A hostile or compromised daemon can return an element with an event handler and execute JavaScript in the Web UI origin when the relevant view opens. The session cookie is HttpOnly, but injected JavaScript can make same-origin JSON and upload requests and act with the victim's Web session. Where R13's local-bootstrap prerequisites hold, it can traverse that path to execute code on the Web host. A first-connection machine in the middle can do the same because TOFU cannot authenticate that first connection.
 
 **Fix:** encode every daemon-returned string before it reaches HTML, and use text nodes or `textContent` for values. Keep static markup separate from dynamic text. Add browser tests with hostile version, state and status values.
 
@@ -178,8 +193,9 @@ The GHSL Deluge issues CVE-2025-46561 through CVE-2025-46564 were fixed upstream
 
 ## Recommended order
 
-1. Fix R01, R02, R04 and R06: they are small authorization/encoding changes with direct security benefit.
-2. Decide whether NORMAL accounts remain trusted with arbitrary filesystem and network access. That decision determines the final shape of R03, R05 and R10.
-3. Add destination and resource policies for tracker icons and blocklists (R07 and R09).
-4. Apply per-owner authorization in AutoAdd (R08), escape GTK markup (R11), and add Web CSRF validation (R12).
-5. Repair and make the live TLS suite mandatory in CI.
+1. Address R13's trust boundary first. Keep plugins administrator-equivalent, but remove plugin management and daemon bootstrap from ordinary Web sessions, or explicitly secure every Web login as OS-code-execution authority.
+2. Fix R01, R02, R04 and R06: they are small authorization/encoding changes with direct security benefit.
+3. Decide whether NORMAL accounts remain trusted with arbitrary filesystem and network access. That decision determines the final shape of R03, R05 and R10.
+4. Add destination and resource policies for tracker icons and blocklists (R07 and R09).
+5. Apply per-owner authorization in AutoAdd (R08), escape GTK markup (R11), and add Web CSRF validation (R12).
+6. Repair and make the live TLS suite mandatory in CI.
