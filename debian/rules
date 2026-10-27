@@ -56,6 +56,22 @@ execute_after_dh_virtualenv:
 	# Install Squall from this source tree without re-resolving locked dependencies.
 	debian/squall-common/opt/venvs/deluge/bin/python -m pip install \
 		--no-build-isolation --no-deps .
+	# Installs performed after dh_virtualenv's relocation pass inherit the
+	# package staging path. Normalize those entry points to the installed venv.
+	for SCRIPT in debian/squall-common/opt/venvs/deluge/bin/*; \
+	do \
+		if [ -f "$${SCRIPT}" ] && [ ! -L "$${SCRIPT}" ] && \
+			head -n 1 "$${SCRIPT}" | grep -Eq '^\#!.*/debian/squall-common/opt/venvs/deluge/bin/python([0-9.]+)?$$'; \
+		then \
+			sed -i '1 s|^\#!.*/debian/squall-common/opt/venvs/deluge/bin/python[0-9.]*$$|\#!/opt/venvs/deluge/bin/python|' "$${SCRIPT}"; \
+		fi; \
+	done
+	# These are package entry points; fail the build if any is not relocatable.
+	for SCRIPT in pip squall squall-console squall-gtk squall-web squalld; \
+	do \
+		test "$$(head -n 1 debian/squall-common/opt/venvs/deluge/bin/$${SCRIPT})" = \
+			'#!/opt/venvs/deluge/bin/python'; \
+	done
 	# Unpack plugin eggs
 	cd debian/squall-common/opt/venvs/deluge/lib/python*/site-packages/deluge/plugins/; \
 	for EGG in *.egg; \

@@ -80,6 +80,22 @@ jobs:
       - name: Build packages
         run: dpkg-buildpackage -us -uc -b
 
+      - name: Verify packaged runtime
+        run: |
+          COMMON_DEB=$(find .. -maxdepth 1 -name 'squall-common_*_amd64.deb' -print -quit)
+          test -n "$COMMON_DEB"
+          PACKAGE_ROOT=$(mktemp -d)
+          dpkg-deb -x "$COMMON_DEB" "$PACKAGE_ROOT"
+
+          for script in pip squall squall-console squall-gtk squall-web squalld; do
+            test "$(head -n 1 "$PACKAGE_ROOT/opt/venvs/deluge/bin/$script")" = \
+              '#!/opt/venvs/deluge/bin/python'
+          done
+
+          "$PACKAGE_ROOT/opt/venvs/deluge/bin/python" -c \
+            "from importlib.metadata import version; import libtorrent; assert libtorrent.__version__ == '2.1.2.0'; assert version('pip') == '26.2.2'; assert version('Twisted') == '26.4.0'; assert version('zope.interface') == '7.2'"
+          ! dpkg-deb -f "$COMMON_DEB" Depends | grep -qi libtorrent
+
       - name: Rename to debrepo format
         env:
           CODENAME: ${{ matrix.version }}
