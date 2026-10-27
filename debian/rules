@@ -53,6 +53,21 @@ execute_after_dh_virtualenv:
 	debian/squall-common/opt/venvs/deluge/bin/python -m pip install \
 		--require-hashes --upgrade --force-reinstall --no-deps \
 		-r requirements-lock/pip-bootstrap.txt
+	# Some dh_virtualenv seed versions leave their dist-info directory behind,
+	# which makes metadata consumers report the wrong pip version.
+	PIP_VERSION=$$(debian/squall-common/opt/venvs/deluge/bin/python -c \
+		'import pip; print(pip.__version__)'); \
+	for DIST_INFO in debian/squall-common/opt/venvs/deluge/lib/python*/site-packages/pip-*.dist-info; \
+	do \
+		case "$${DIST_INFO}" in \
+			*/pip-$${PIP_VERSION}.dist-info) ;; \
+			*) rm -rf -- "$${DIST_INFO}" ;; \
+		esac; \
+	done
+	test "$$(find debian/squall-common/opt/venvs/deluge/lib/python*/site-packages \
+		-maxdepth 1 -type d -name 'pip-*.dist-info' | wc -l)" -eq 1
+	debian/squall-common/opt/venvs/deluge/bin/python -c \
+		"from importlib.metadata import version; import pip; assert version('pip') == pip.__version__"
 	# Install Squall from this source tree without re-resolving locked dependencies.
 	debian/squall-common/opt/venvs/deluge/bin/python -m pip install \
 		--no-build-isolation --no-deps .

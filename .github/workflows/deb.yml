@@ -92,8 +92,10 @@ jobs:
               '#!/opt/venvs/deluge/bin/python'
           done
 
+          test "$(find "$PACKAGE_ROOT"/opt/venvs/deluge/lib/python*/site-packages \
+            -maxdepth 1 -type d -name 'pip-*.dist-info' | wc -l)" -eq 1
           "$PACKAGE_ROOT/opt/venvs/deluge/bin/python" -c \
-            "from importlib.metadata import version; import libtorrent; assert libtorrent.__version__ == '2.1.2.0'; assert version('pip') == '26.2.2'; assert version('Twisted') == '26.4.0'; assert version('zope.interface') == '7.2'"
+            "from importlib.metadata import version; import libtorrent, pip; assert libtorrent.__version__ == '2.1.2.0'; assert pip.__version__ == version('pip') == '26.2.2'; assert version('Twisted') == '26.4.0'; assert version('zope.interface') == '7.2'"
           ! dpkg-deb -f "$COMMON_DEB" Depends | grep -qi libtorrent
 
       - name: Rename to debrepo format

@@ -46,7 +46,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Packaging
 
 - Debian builds and Linux CI install platform-specific, hash-locked dependency sets. The build installs Squall separately with dependency resolution disabled and bundles the official libtorrent 2.1.2 release wheel.
-- Debian builds normalize virtualenv entry-point shebangs after installing Squall and fail if any public launcher retains a package staging path.
+- Debian builds normalize virtualenv entry-point shebangs after installing Squall, remove stale seeded pip metadata, and fail if any public launcher retains a package staging path.
 - The deb no longer enables the user `squalld`/`squall-web` units for all users, and no longer enables or starts the system `squall-web` service on install. Enable them explicitly.
 - `SQUALLD_OPTS` and `DELUGE_WEB_OPTS` in `/etc/default/squall-*` are now passed to the services.
 - System services set `PYTHONNOUSERSITE=1`. logrotate rotates the daemon log as the daemon user.
