@@ -34,6 +34,19 @@ from deluge.common import (
 )
 from deluge.configmanager import ConfigManager, get_config_dir
 from deluge.core.authmanager import AUTH_LEVEL_ADMIN
+from deluge.core.network_policy import (
+    MAX_MAGNET_URI_LENGTH,
+    MAX_PREFETCH_TIMEOUT,
+    MAX_PREFETCH_WAITERS,
+    MAX_PREFETCHES,
+    MAX_TRACKERS_PER_TORRENT,
+    MAX_WEB_SEEDS_PER_TORRENT,
+    filter_network_urls,
+    filter_tracker_tiers,
+    has_unicode_controls,
+    sanitize_log_value,
+    sanitize_torrent_metainfo,
+)
 from deluge.core.torrent import Torrent, TorrentOptions, sanitize_filepath
 from deluge.decorators import maybe_coroutine
 from deluge.error import AddTorrentError, InvalidTorrentError
@@ -341,13 +354,77 @@ class TorrentManager(component.Component):
         """
         # Get the torrent data from the torrent file
         if log.isEnabledFor(logging.DEBUG):
-            log.debug('Attempting to extract torrent_info from %s', filepath)
+            log.debug(
+                'Attempting to extract torrent_info from %s',
+                sanitize_log_value(filepath),
+            )
         try:
-            torrent_info = lt.torrent_info(Path(filepath).read_bytes())
-        except (RuntimeError, OSError) as ex:
-            log.warning('Unable to open torrent file %s: %s', filepath, ex)
+            filedump = self._sanitize_torrent_filedump(Path(filepath).read_bytes())
+            torrent_info = lt.torrent_info(filedump)
+        except (AddTorrentError, RuntimeError, OSError) as ex:
+            log.warning(
+                'Unable to open torrent file %s: %s',
+                sanitize_log_value(filepath),
+                sanitize_log_value(ex),
+            )
         else:
             return torrent_info
+
+    @property
+    def allow_private_trackers(self) -> bool:
+        return self.config.get('allow_private_trackers', False) is True
+
+    def _sanitize_torrent_filedump(self, filedump: bytes) -> bytes:
+        if not isinstance(filedump, (bytes, bytearray)):
+            raise AddTorrentError('Torrent metadata must be bencoded bytes.')
+        try:
+            metainfo = lt.bdecode(bytes(filedump))
+        except (RuntimeError, TypeError, ValueError) as ex:
+            raise AddTorrentError('Unable to decode torrent metadata.') from ex
+        if not isinstance(metainfo, dict) or b'info' not in metainfo:
+            raise AddTorrentError('Torrent metadata is missing its info dictionary.')
+        sanitize_torrent_metainfo(metainfo, allow_private=self.allow_private_trackers)
+        return lt.bencode(metainfo)
+
+    def _sanitize_magnet_params(self, params):
+        trackers, tiers = filter_tracker_tiers(
+            params.trackers,
+            params.tracker_tiers,
+            allow_private=self.allow_private_trackers,
+        )
+        params.trackers = trackers
+        params.tracker_tiers = tiers
+        params.url_seeds = filter_network_urls(
+            params.url_seeds,
+            kind='web_seed',
+            allow_private=self.allow_private_trackers,
+            limit=MAX_WEB_SEEDS_PER_TORRENT,
+        )
+        params.http_seeds = filter_network_urls(
+            params.http_seeds,
+            kind='web_seed',
+            allow_private=self.allow_private_trackers,
+            limit=MAX_WEB_SEEDS_PER_TORRENT,
+        )
+        return params
+
+    def _parse_magnet(self, magnet: str):
+        if not isinstance(magnet, str):
+            raise AddTorrentError('Unable to parse invalid magnet URI.')
+        try:
+            magnet_length = len(magnet.encode('utf8'))
+        except UnicodeError as ex:
+            raise AddTorrentError('Unable to parse invalid magnet URI.') from ex
+        if magnet_length > MAX_MAGNET_URI_LENGTH or has_unicode_controls(magnet):
+            raise AddTorrentError('Unable to parse invalid magnet URI.')
+        magnet_info = get_magnet_info(magnet)
+        if not magnet_info or not magnet_info.get('info_hash'):
+            raise AddTorrentError('Unable to parse invalid magnet URI.')
+        try:
+            params = self._sanitize_magnet_params(lt.parse_magnet_uri(magnet))
+        except (RuntimeError, ValueError) as ex:
+            raise AddTorrentError('Unable to parse invalid magnet URI.') from ex
+        return magnet_info, params
 
     @maybe_coroutine
     async def prefetch_metadata(self, magnet: str, timeout: int) -> Tuple[str, bytes]:
@@ -362,13 +439,28 @@ class TorrentManager(component.Component):
 
         """
 
-        torrent_id = get_magnet_info(magnet)['info_hash']
+        if isinstance(timeout, bool) or not isinstance(timeout, int):
+            raise AddTorrentError('Metadata prefetch timeout must be an integer.')
+        if not 1 <= timeout <= MAX_PREFETCH_TIMEOUT:
+            raise AddTorrentError(
+                f'Metadata prefetch timeout must be between 1 and {MAX_PREFETCH_TIMEOUT} seconds.'
+            )
+
+        magnet_info, add_torrent_params = self._parse_magnet(magnet)
+        torrent_id = magnet_info['info_hash']
         if torrent_id in self.prefetching_metadata:
+            if (
+                len(self.prefetching_metadata[torrent_id].result_queue)
+                >= MAX_PREFETCH_WAITERS
+            ):
+                raise AddTorrentError('Too many waiters for this metadata prefetch.')
             d = Deferred()
             self.prefetching_metadata[torrent_id].result_queue.append(d)
             return await d
 
-        add_torrent_params = lt.parse_magnet_uri(magnet)
+        if len(self.prefetching_metadata) >= MAX_PREFETCHES:
+            raise AddTorrentError('Too many metadata prefetches are already active.')
+
         add_torrent_params.save_path = gettempdir()
         add_torrent_params.flags = (
             (
@@ -380,7 +472,10 @@ class TorrentManager(component.Component):
             ^ lt.torrent_flags.paused
         )
 
-        torrent_handle = self.session.add_torrent(add_torrent_params)
+        try:
+            torrent_handle = self.session.add_torrent(add_torrent_params)
+        except RuntimeError as ex:
+            raise AddTorrentError('Unable to start metadata prefetch.') from ex
 
         d = Deferred()
         # Cancel the defer if timeout reached.
@@ -429,6 +524,15 @@ class TorrentManager(component.Component):
         add_torrent_params = {}
         if torrent_info:
             add_torrent_params['ti'] = torrent_info
+            tracker_entries = list(torrent_info.trackers())[
+                : MAX_TRACKERS_PER_TORRENT * 4
+            ]
+            trackers, __ = filter_tracker_tiers(
+                [entry.url for entry in tracker_entries],
+                [entry.tier for entry in tracker_entries],
+                allow_private=self.allow_private_trackers,
+            )
+            add_torrent_params['trackers'] = trackers
             name = torrent_info.name()
             if not name:
                 name = (
@@ -437,10 +541,21 @@ class TorrentManager(component.Component):
             add_torrent_params['name'] = name
             torrent_id = str(torrent_info.info_hash())
         elif magnet:
-            magnet_info = get_magnet_info(magnet)
+            magnet_info, magnet_params = self._parse_magnet(magnet)
             if magnet_info:
                 add_torrent_params['name'] = magnet_info['name']
-                add_torrent_params['trackers'] = list(magnet_info['trackers'])
+                trackers = list(magnet_info['trackers'])
+                tracker_tiers = [
+                    magnet_info['trackers'][tracker] for tracker in trackers
+                ]
+                trackers, __ = filter_tracker_tiers(
+                    trackers,
+                    tracker_tiers,
+                    allow_private=self.allow_private_trackers,
+                )
+                add_torrent_params['trackers'] = trackers
+                add_torrent_params['url_seeds'] = list(magnet_params.url_seeds)
+                add_torrent_params['http_seeds'] = list(magnet_params.http_seeds)
                 torrent_id = magnet_info['info_hash']
                 add_torrent_params['info_hash'] = bytes(bytearray.fromhex(torrent_id))
             else:
@@ -464,7 +579,11 @@ class TorrentManager(component.Component):
             for index, fname in options['mapped_files'].items():
                 fname = sanitize_filepath(decode_bytes(fname))
                 if log.isEnabledFor(logging.DEBUG):
-                    log.debug('renaming file index %s to %s', index, fname)
+                    log.debug(
+                        'renaming file index %s to %s',
+                        index,
+                        sanitize_log_value(fname),
+                    )
                 try:
                     torrent_info.rename_file(int(index), fname.encode('utf8'))
                 except TypeError:
@@ -472,7 +591,7 @@ class TorrentManager(component.Component):
             add_torrent_params['ti'] = torrent_info
 
         if log.isEnabledFor(logging.DEBUG):
-            log.debug('options: %s', options)
+            log.debug('torrent option keys: %s', sorted(options))
 
         # Fill in the rest of the add_torrent_params dictionary.
         add_torrent_params['save_path'] = options['download_location']
@@ -542,8 +661,9 @@ class TorrentManager(component.Component):
 
         if filedump:
             try:
+                filedump = self._sanitize_torrent_filedump(filedump)
                 torrent_info = lt.torrent_info(filedump)
-            except RuntimeError as ex:
+            except (AddTorrentError, RuntimeError) as ex:
                 raise AddTorrentError(
                     'Unable to add torrent, decoding filedump failed: %s' % ex
                 )
@@ -607,8 +727,9 @@ class TorrentManager(component.Component):
 
         if filedump:
             try:
+                filedump = self._sanitize_torrent_filedump(filedump)
                 torrent_info = lt.torrent_info(filedump)
-            except RuntimeError as ex:
+            except (AddTorrentError, RuntimeError) as ex:
                 raise AddTorrentError(
                     'Unable to add torrent, decoding filedump failed: %s' % ex
                 )
@@ -683,8 +804,8 @@ class TorrentManager(component.Component):
             name_and_owner = torrent.get_status(['name', 'owner'])
             log.info(
                 'Torrent %s from user "%s" %s',
-                name_and_owner['name'],
-                name_and_owner['owner'],
+                sanitize_log_value(name_and_owner['name']),
+                sanitize_log_value(name_and_owner['owner']),
                 from_state and 'loaded' or 'added',
             )
 
@@ -748,7 +869,7 @@ class TorrentManager(component.Component):
         try:
             self.session.remove_torrent(torrent.handle, 1 if remove_data else 0)
         except RuntimeError as ex:
-            log.warning('Error removing torrent: %s', ex)
+            log.warning('Error removing torrent: %s', sanitize_log_value(ex))
             return False
 
         # Remove fastresume data if it is exists
@@ -780,8 +901,8 @@ class TorrentManager(component.Component):
         component.get('EventManager').emit(TorrentRemovedEvent(torrent_id))
         log.info(
             'Torrent %s removed by user: %s',
-            torrent_name,
-            component.get('RPCServer').get_session_user(),
+            sanitize_log_value(torrent_name),
+            sanitize_log_value(component.get('RPCServer').get_session_user()),
         )
 
         for file in self.ssl_file_paths_for_torrent(torrent_id):
@@ -892,7 +1013,7 @@ class TorrentManager(component.Component):
                 log.warning(
                     'Error when adding torrent "%s" to session: %s',
                     t_state.torrent_id,
-                    ex,
+                    sanitize_log_value(ex),
                 )
             else:
                 deferreds.append(d)
@@ -1261,19 +1382,27 @@ class TorrentManager(component.Component):
     def on_alert_add_torrent(self, alert):
         """Alert handler for libtorrent add_torrent_alert"""
         if not alert.handle.is_valid():
-            log.warning('Torrent handle is invalid: %s', alert.error.message())
+            log.warning(
+                'Torrent handle is invalid: %s',
+                sanitize_log_value(alert.error.message()),
+            )
             return
 
         try:
             torrent_id = str(alert.handle.info_hash())
         except RuntimeError as ex:
-            log.warning('Failed to get torrent id from handle: %s', ex)
+            log.warning(
+                'Failed to get torrent id from handle: %s', sanitize_log_value(ex)
+            )
             return
 
         try:
             add_async_params = self.torrents_loading.pop(torrent_id)
         except KeyError as ex:
-            log.warning('Torrent id not in torrents loading list: %s', ex)
+            log.warning(
+                'Torrent id not in torrents loading list: %s',
+                sanitize_log_value(ex),
+            )
             return
 
         self.add_async_callback(alert.handle, *add_async_params)
@@ -1299,7 +1428,7 @@ class TorrentManager(component.Component):
                 torrent.is_finished,
                 total_download,
                 torrent.options['move_completed'],
-                torrent.options['move_completed_path'],
+                sanitize_log_value(torrent.options['move_completed_path']),
             )
 
         torrent.update_state()
@@ -1399,10 +1528,10 @@ class TorrentManager(component.Component):
             log.error(
                 'Unable to set ssl certificate for %s from files %s:%s:%s: %s',
                 torrent_id,
-                crt_file,
-                key_file,
-                dh_params_file,
-                err,
+                sanitize_log_value(crt_file),
+                sanitize_log_value(key_file),
+                sanitize_log_value(dh_params_file),
+                sanitize_log_value(err),
             )
 
     def on_alert_tracker_reply(self, alert):
@@ -1453,7 +1582,9 @@ class TorrentManager(component.Component):
         if not error_message:
             error_message = decode_bytes(alert.error.message())
         log.debug(
-            'Tracker Error Alert: %s [%s]', decode_bytes(alert.message()), error_message
+            'Tracker Error Alert: %s [%s]',
+            sanitize_log_value(decode_bytes(alert.message())),
+            sanitize_log_value(error_message),
         )
         # libtorrent 1.2 added endpoint struct to each tracker. to prevent false updates
         # we will need to verify that at least one endpoint to the errored tracker is working
@@ -1493,7 +1624,10 @@ class TorrentManager(component.Component):
         except (RuntimeError, KeyError):
             return
 
-        log.warning('on_alert_storage_moved_failed: %s', decode_bytes(alert.message()))
+        log.warning(
+            'on_alert_storage_moved_failed: %s',
+            sanitize_log_value(decode_bytes(alert.message())),
+        )
         # Set an Error message and pause the torrent
         alert_msg = decode_bytes(alert.message()).split(':', 1)[1].strip()
         torrent.force_error_state('Failed to move download folder: %s' % alert_msg)
@@ -1568,7 +1702,7 @@ class TorrentManager(component.Component):
             return
 
         alert_msg = decode_bytes(alert.message())
-        log.error('on_alert_fastresume_rejected: %s', alert_msg)
+        log.error('on_alert_fastresume_rejected: %s', sanitize_log_value(alert_msg))
         if alert.error.value() == 134:
             if not os.path.isdir(torrent.options['download_location']):
                 error_msg = 'Unable to locate Download Folder!'
@@ -1598,7 +1732,7 @@ class TorrentManager(component.Component):
         except TypeError:
             # lt 2.x: new_name is a property, not a method
             new_name = decode_bytes(alert.new_name)
-        log.debug('index: %s name: %s', alert.index, new_name)
+        log.debug('index: %s name: %s', alert.index, sanitize_log_value(new_name))
 
         # We need to see if this file index is in a waiting_on_folder dict
         for wait_on_folder in torrent.waiting_on_folder_rename:
@@ -1642,7 +1776,7 @@ class TorrentManager(component.Component):
         except (RuntimeError, KeyError):
             return
         alert_msg = decode_bytes(alert.message())
-        log.error('File error: %s', alert_msg)
+        log.error('File error: %s', sanitize_log_value(alert_msg))
         torrent.force_error_state(alert_msg)
 
     def on_alert_torrent_error(self, alert):
@@ -1652,12 +1786,15 @@ class TorrentManager(component.Component):
         except (RuntimeError, KeyError):
             return
         alert_msg = decode_bytes(alert.message())
-        log.error('Torrent error: %s', alert_msg)
+        log.error('Torrent error: %s', sanitize_log_value(alert_msg))
         torrent.force_error_state(alert_msg)
 
     def on_alert_torrent_delete_failed(self, alert):
         """Alert handler for libtorrent torrent_delete_failed_alert"""
-        log.error('Failed to delete torrent data: %s', decode_bytes(alert.message()))
+        log.error(
+            'Failed to delete torrent data: %s',
+            sanitize_log_value(decode_bytes(alert.message())),
+        )
 
     def on_alert_file_completed(self, alert):
         """Alert handler for libtorrent file_completed_alert
@@ -1703,7 +1840,7 @@ class TorrentManager(component.Component):
         """Alert handler for libtorrent performance_alert"""
         log.warning(
             'on_alert_performance: %s, %s',
-            decode_bytes(alert.message()),
+            sanitize_log_value(decode_bytes(alert.message())),
             alert.warning_code,
         )
         if alert.warning_code == lt.performance_warning_t.send_buffer_watermark_too_low:
@@ -1746,11 +1883,11 @@ class TorrentManager(component.Component):
             op = 'unknown'
         log.debug(
             'Peer disconnected: %s (torrent: %s, error: %s, reason: %s, op: %s)',
-            alert.ip,
+            sanitize_log_value(alert.ip),
             torrent_id,
-            error_msg,
-            reason,
-            op,
+            sanitize_log_value(error_msg),
+            sanitize_log_value(reason),
+            sanitize_log_value(op),
         )
 
     def separate_keys(self, keys, torrent_ids):

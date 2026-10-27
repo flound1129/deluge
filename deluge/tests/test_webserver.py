@@ -167,6 +167,18 @@ class TestWebServer(WebServerTestBase, WebServerMockBase):
         reply = await self.send(upload_request([], length=MAX_UNAUTHENTICATED_BODY + 1))
         assert reply.startswith(b'HTTP/1.1 413 ')
 
+    @pytest.mark.parametrize('bare_newline', [b'\r', b'\n'])
+    async def test_header_value_rejects_bare_newline(self, bare_newline):
+        """CVE-2026-115877: a header value cannot hide a second header."""
+        request = (
+            b'POST /json HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Test: visible'
+            + bare_newline
+            + b'Content-Length: 39\r\nConnection: close\r\n\r\n'
+            + b'GET /admin HTTP/1.1\r\nHost: internal\r\n\r\n'
+        )
+        reply = await self.send(request)
+        assert reply.startswith(b'HTTP/1.1 400 ')
+
     async def test_chunked_body_without_session_refused(self):
         """S03: a chunked body without a session stops at the limit."""
         size = MAX_UNAUTHENTICATED_BODY + 1

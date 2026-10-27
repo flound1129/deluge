@@ -530,7 +530,7 @@ _package_data['deluge.ui.web'] = [
 _package_data['deluge.ui.gtk3'] = ['glade/*.ui']
 
 install_requires = [
-    'twisted[tls]>=18.7',
+    'twisted[tls]>=26.4,<27',
     'rencode>=1.0.7',
     'pyopenssl',
     'cryptography',
@@ -538,7 +538,7 @@ install_requires = [
     'mako',
     "pywin32; sys_platform == 'win32'",
     "certifi; sys_platform == 'win32'",
-    'zope.interface',
+    'zope.interface>=7.2,<8',
 ]
 extras_require = {
     'all': [

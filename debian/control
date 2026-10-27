@@ -35,7 +35,7 @@ Description: lightweight, lean BitTorrent client (metapackage)
  daemon for running Squall on a single machine.
 
 Package: squall-common
-Architecture: all
+Architecture: amd64
 Depends:
  python3-gi,
  python3-gi-cairo,

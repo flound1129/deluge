@@ -27,6 +27,7 @@ from deluge.ui.console.utils.format_utils import (
     strwidth,
     trim_string,
 )
+from deluge.ui.console.utils.security import sanitize_console_text
 
 from . import BaseCommand
 
@@ -182,7 +183,10 @@ class Command(BaseCommand):
                 self.show_info(key, status[key], options.verbose, options.detailed)
 
         def on_torrents_status_fail(reason):
-            self.console.write('{!error!}Error getting torrent info: %s' % reason)
+            self.console.write(
+                '{!error!}Error getting torrent info: %s'
+                % sanitize_console_text(reason)
+            )
 
         status_dict = {'id': torrent_ids}
 
@@ -210,8 +214,9 @@ class Command(BaseCommand):
 
         prevpath = []
         for index, torrent_file in enumerate(status['files']):
-            filename = torrent_file['path'].split(dirsep)[-1]
-            filepath = torrent_file['path'].split(dirsep)[:-1]
+            safe_path = sanitize_console_text(torrent_file['path'])
+            filename = safe_path.split(dirsep)[-1]
+            filepath = safe_path.split(dirsep)[:-1]
 
             for depth, subdir in enumerate(filepath):
                 indent = ' ' * depth * spaces_per_level
@@ -287,19 +292,20 @@ class Command(BaseCommand):
                 else:
                     s += '%sPeer\t{!input!}' % colors.state_color['Downloading']
 
-                s += peer['country'] + '\t'
+                s += sanitize_console_text(peer['country']) + '\t'
 
-                if peer['ip'].count(':') == 1:
+                peer_ip = sanitize_console_text(peer['ip'])
+                if peer_ip.count(':') == 1:
                     # IPv4
-                    s += peer['ip']
+                    s += peer_ip
                 else:
                     # IPv6
                     s += '[{}]:{}'.format(
-                        ':'.join(peer['ip'].split(':')[:-1]),
-                        peer['ip'].split(':')[-1],
+                        ':'.join(peer_ip.split(':')[:-1]),
+                        peer_ip.split(':')[-1],
                     )
 
-                c = peer['client']
+                c = sanitize_console_text(peer['client'])
                 s += '\t' + c
 
                 if len(c) < 16:
@@ -330,10 +336,12 @@ class Command(BaseCommand):
             cols = 80
 
         sep = ' '
+        safe_name = sanitize_console_text(status['name'])
+        safe_torrent_id = sanitize_console_text(torrent_id)
 
         if verbose or detailed:
-            self.console.write('{!info!}Name: {!input!}%s' % (status['name']))
-            self.console.write('{!info!}ID: {!input!}%s' % (torrent_id))
+            self.console.write('{!info!}Name: {!input!}%s' % safe_name)
+            self.console.write('{!info!}ID: {!input!}%s' % safe_torrent_id)
             s = '{{!info!}}State: {}{}'.format(
                 colors.state_color[status['state']],
                 status['state'],
@@ -405,11 +413,14 @@ class Command(BaseCommand):
             )
             self.console.write(s)
 
-            s = '{!info!}Tracker: {!input!}%s' % status['tracker_host']
+            s = '{!info!}Tracker: {!input!}%s' % sanitize_console_text(
+                status['tracker_host']
+            )
             self.console.write(s)
 
             self.console.write(
-                '{!info!}Tracker status: {!input!}%s' % status['tracker_status']
+                '{!info!}Tracker status: {!input!}%s'
+                % sanitize_console_text(status['tracker_status'])
             )
 
             if not status['is_finished']:
@@ -421,11 +432,15 @@ class Command(BaseCommand):
                 )
                 self.console.write(s)
 
-            s = '{!info!}Download Folder: {!input!}%s' % status['download_location']
+            s = '{!info!}Download Folder: {!input!}%s' % sanitize_console_text(
+                status['download_location']
+            )
             self.console.write(s)
 
             if 'label' in status:
-                s = '{!info!}Label: {!input!}%s' % status['label']
+                s = '{!info!}Label: {!input!}%s' % sanitize_console_text(
+                    status['label']
+                )
                 self.console.write(s)
 
             if detailed:
@@ -443,17 +458,19 @@ class Command(BaseCommand):
             )
 
             s += ' {!info!}' + format_progress(status['progress']).rjust(6, ' ')
-            s += ' {!input!}%s' % (status['name'])
+            s += ' {!input!}%s' % safe_name
 
             # Shorten the ID if it's necessary. Pretty hacky
             # XXX: should make a nice function for it that can partition and shorten stuff
-            space_left = cols - strwidth('[S] 99.99% ' + status['name'])
+            space_left = cols - strwidth('[S] 99.99% ' + safe_name)
 
             if self.console.interactive and space_left >= len(sep + torrent_id):
                 # Not enough line space so shorten the hash (for interactive mode).
-                torrent_id = shorten_hash(torrent_id, space_left)
+                safe_torrent_id = sanitize_console_text(
+                    shorten_hash(torrent_id, space_left)
+                )
             s += sep
-            s += '{!cyan!}%s' % torrent_id
+            s += '{!cyan!}%s' % safe_torrent_id
             self.console.write(s)
 
             dl_info = '{!info!}DL: {!input!}'

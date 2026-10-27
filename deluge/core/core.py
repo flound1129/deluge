@@ -34,6 +34,11 @@ from deluge.core.authmanager import (
 )
 from deluge.core.eventmanager import EventManager
 from deluge.core.filtermanager import FilterManager
+from deluge.core.network_policy import (
+    network_url_log_label,
+    sanitize_log_value,
+    validate_resolved_network_url,
+)
 from deluge.core.pluginmanager import PluginManager
 from deluge.core.preferencesmanager import PreferencesManager
 from deluge.core.rpcserver import export
@@ -51,7 +56,7 @@ from deluge.event import (
     SessionResumedEvent,
     TorrentQueueChangedEvent,
 )
-from deluge.httpdownloader import download_file
+from deluge.httpdownloader import PinnedAddressEndpointFactory, download_file
 
 log = logging.getLogger(__name__)
 
@@ -121,6 +126,10 @@ class Core(component.Component):
             'peer_fingerprint': peer_id,
             'user_agent': user_agent,
             'ignore_resume_timestamps': True,
+            # Re-assert these after loading persisted session state. They make
+            # libtorrent enforce its connection-time tracker/web-seed checks.
+            'ssrf_mitigation': True,
+            'apply_ip_filter_to_trackers': True,
         }
         self.session = lt.session(settings_pack, flags=0)
 
@@ -519,15 +528,38 @@ class Core(component.Component):
         Returns:
             a Deferred which returns the torrent_id as a str or None
         """
-        log.info('Attempting to add URL %s', url)
+        safe_url = network_url_log_label(url)
+        log.info('Attempting to add torrent from %s', safe_url)
+        endpoint_factory = PinnedAddressEndpointFactory(reactor)
+
+        def validate_torrent_url(value):
+            validation = validate_resolved_network_url(
+                value,
+                kind='web_seed',
+                allow_private=self.torrentmanager.allow_private_trackers,
+                include_addresses=True,
+            )
+
+            def pin_addresses(result):
+                validated_url, hostname, addresses = result
+                endpoint_factory.register(hostname, addresses)
+                return validated_url
+
+            validation.addCallback(pin_addresses)
+            return validation
 
         tmp_fd, tmp_file = tempfile.mkstemp(prefix='deluge_url.', suffix='.torrent')
         try:
             filename = await download_file(
-                url, tmp_file, headers=headers, force_filename=True
+                url,
+                tmp_file,
+                headers=headers,
+                force_filename=True,
+                url_validator=validate_torrent_url,
+                endpoint_factory=endpoint_factory,
             )
         except Exception:
-            log.error('Failed to add torrent from URL %s', url)
+            log.error('Failed to add torrent from %s', safe_url)
             raise
         else:
             with open(filename, 'rb') as _file:
@@ -665,9 +697,21 @@ class Core(component.Component):
 
     @export
     def connect_peer(self, torrent_id: str, ip: str, port: int):
-        log.debug('adding peer %s to %s', ip, torrent_id)
-        if not self.torrentmanager[torrent_id].connect_peer(ip, port):
-            log.warning('Error adding peer %s:%s to %s', ip, port, torrent_id)
+        safe_ip = sanitize_log_value(ip)
+        safe_torrent_id = sanitize_log_value(torrent_id)
+        log.debug('adding peer %s to %s', safe_ip, safe_torrent_id)
+        allow_private = (
+            component.get('RPCServer').get_session_auth_level() >= AUTH_LEVEL_ADMIN
+        )
+        if not self.torrentmanager[torrent_id].connect_peer(
+            ip, port, allow_private=allow_private
+        ):
+            log.warning(
+                'Error adding peer %s:%s to %s',
+                safe_ip,
+                sanitize_log_value(port),
+                safe_torrent_id,
+            )
 
     @export
     def set_ssl_torrent_cert(
@@ -856,12 +900,17 @@ class Core(component.Component):
     @export
     def set_config(self, config: Dict[str, Any]):
         """Set the config with values from dictionary"""
-        # Plugins run code as the daemon user, so only an admin may change the
-        # plugins enabled at startup. Check before any key is set.
-        if 'enabled_plugins' in config:
+        # These settings cross daemon-side security boundaries, so check the
+        # entire update before setting any key.
+        admin_only_keys = {'allow_private_trackers', 'enabled_plugins'}
+        if admin_only_keys.intersection(config):
             auth_level = component.get('RPCServer').get_session_auth_level()
             if auth_level < AUTH_LEVEL_ADMIN:
                 raise NotAuthorizedError(auth_level, AUTH_LEVEL_ADMIN)
+        if 'allow_private_trackers' in config and not isinstance(
+            config['allow_private_trackers'], bool
+        ):
+            raise ValueError('allow_private_trackers must be a boolean')
 
         # Load all the values into the configuration
         for key in config:

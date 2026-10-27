@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Security
 
+- Tracker and web-seed inputs from `.torrent` files, magnets and tracker edits now have scheme, authority, port, length and count limits. Literal private/local destinations and conventional local hostnames are refused by default; an ADMIN may enable the `allow_private_trackers` compatibility setting. Libtorrent's SSRF mitigation is reasserted after session-state load.
+- Torrent URL downloads now reject private DNS results, pin the validated address for the connection, and apply the same policy to every redirect. URL credentials, paths and queries are not written to logs.
+- NORMAL daemon accounts may manually connect torrents only to public numeric peer addresses. ADMIN accounts retain explicit local-peer access.
+- Metadata prefetches have global, waiter and timeout bounds. Tracker and native alert queues have application-level caps, and alert handlers drain under reactor-turn and unresolved-handler budgets.
+- Console and log output render control characters, bidirectional overrides and untrusted console color tags visibly instead of allowing tracker, peer or torrent text to forge output.
+- Web UI: reject bare CR or LF inside HTTP header values, carrying the upstream CVE-2026-115877 fix while Twisted 26.10 is available only as a release candidate.
 - Web UI: HTML-encode tracker status, tracker host filter, download folder and owner. A malicious tracker's failure or warning message could run script in the Web UI session.
 - Web UI: require a login for `/upload`, which let anyone write files to the temp dir.
 - Web UI: limit request bodies to 64 KiB without a session and 64 MiB with one. The limit is checked before the body is read, and a larger body gets 413 and the connection is closed. Files staged by `/upload` and `web.download_torrent_from_url` are limited to 1000 files and 256 MiB in total. They are removed when `web.add_torrents` or `web.upload_plugin` uses them, after 1 hour, and when the Web UI stops. A failed download no longer leaves a temp dir.
@@ -34,11 +40,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Tracker icons: only decode ICO, PNG, GIF, JPEG and BMP with Pillow. GTK UI: escape tracker status before Pango markup.
 - Notifications: refuse to send the SMTP password when TLS is enabled but the server does not offer STARTTLS, and verify the server certificate.
 - Skipping a file now only deletes it if it was wanted before and is incomplete. Complete files are no longer deleted.
-- Require libtorrent >= 2.0.15 and < 2.1, Pillow >= 13.0.0 (on Python >= 3.11), Twisted >= 18.7 and rencode >= 1.0.7 (CVE-2021-40839).
+- Require libtorrent 2.1.2, including the peer-holepunch, UPnP endpoint and Merkle validation fixes; Twisted 26.4; zope.interface 7.2; Pillow >= 13.0.0 on Python >= 3.11; and rencode >= 1.0.7 (CVE-2021-40839).
 - Generate the daemon TLS key and certificate with `cryptography`. pyOpenSSL 26.3 removed `X509Req`, so a new install could not start `squalld`.
 
 ### Packaging
 
+- Debian builds and Linux CI install platform-specific, hash-locked dependency sets. The build installs Squall separately with dependency resolution disabled and bundles the official libtorrent 2.1.2 release wheel.
 - The deb no longer enables the user `squalld`/`squall-web` units for all users, and no longer enables or starts the system `squall-web` service on install. Enable them explicitly.
 - `SQUALLD_OPTS` and `DELUGE_WEB_OPTS` in `/etc/default/squall-*` are now passed to the services.
 - System services set `PYTHONNOUSERSITE=1`. logrotate rotates the daemon log as the daemon user.

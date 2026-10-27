@@ -180,6 +180,7 @@ class TestCore(BaseTestCase):
 
     @pytest_twisted.inlineCallbacks
     def test_add_torrent_url(self, mock_mkstemp):
+        self.core.torrentmanager.config['allow_private_trackers'] = True
         url = (
             'http://localhost:%d/ubuntu-9.04-desktop-i386.iso.torrent'
             % self.listen_port
@@ -191,7 +192,14 @@ class TestCore(BaseTestCase):
         assert torrent_id == info_hash
         assert not os.path.isfile(mock_mkstemp[1])
 
+    async def test_add_torrent_url_rejects_private_destination_by_default(self):
+        self.core.torrentmanager.config['allow_private_trackers'] = False
+
+        with pytest.raises(ValueError, match='Private or invalid'):
+            await self.core.add_torrent_url('http://127.0.0.1/private.torrent', {})
+
     async def test_add_torrent_url_with_cookie(self):
+        self.core.torrentmanager.config['allow_private_trackers'] = True
         url = 'http://localhost:%d/cookie' % self.listen_port
         options = {}
         headers = {'Cookie': 'password=deluge'}
@@ -204,6 +212,7 @@ class TestCore(BaseTestCase):
         assert result == info_hash
 
     async def test_add_torrent_url_with_redirect(self):
+        self.core.torrentmanager.config['allow_private_trackers'] = True
         url = 'http://localhost:%d/redirect' % self.listen_port
         options = {}
         info_hash = '60d5d82328b4547511fdeac9bf4d0112daa0ce00'
@@ -212,6 +221,7 @@ class TestCore(BaseTestCase):
         assert result == info_hash
 
     async def test_add_torrent_url_with_partial_download(self):
+        self.core.torrentmanager.config['allow_private_trackers'] = True
         url = 'http://localhost:%d/partial' % self.listen_port
         options = {}
         info_hash = '60d5d82328b4547511fdeac9bf4d0112daa0ce00'

@@ -18,8 +18,10 @@ from deluge import component
 from deluge.bencode import bencode
 from deluge.conftest import BaseTestCase
 from deluge.core.core import Core
+from deluge.core.network_policy import MAX_PREFETCHES
+from deluge.core.preferencesmanager import DEFAULT_PREFS
 from deluge.core.rpcserver import RPCServer
-from deluge.error import InvalidTorrentError
+from deluge.error import AddTorrentError, InvalidTorrentError
 
 from . import common
 
@@ -129,6 +131,94 @@ class TestTorrentmanager(BaseTestCase):
         result = await d
         expected = ('deadbeefdeadbeefdeadbeefdeadbeefdeadbeef', b'')
         assert result == expected
+
+    @pytest.mark.parametrize('timeout', [0, 61, True, 1.5])
+    async def test_prefetch_metadata_rejects_invalid_timeout(self, timeout):
+        magnet = 'magnet:?xt=urn:btih:deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+        with pytest.raises(AddTorrentError):
+            await self.tm.prefetch_metadata(magnet, timeout)
+
+    @pytest.mark.parametrize(
+        'magnet',
+        [
+            '',
+            'http://example.com/',
+            'magnet:?dn=no-hash',
+            'magnet:?xt=urn:btih:not-a-valid-hash',
+            'magnet:?xt=urn:btih:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA!',
+            'magnet:?xt=urn:btih:deadbeefdeadbeefdeadbeefdeadbeefdeadbeef\n',
+        ],
+    )
+    async def test_prefetch_metadata_rejects_invalid_magnet(self, magnet):
+        with pytest.raises(AddTorrentError):
+            await self.tm.prefetch_metadata(magnet, 30)
+
+    async def test_prefetch_metadata_caps_global_concurrency(self):
+        item = mock.MagicMock()
+        self.tm.prefetching_metadata = {
+            f'{index:040x}': item for index in range(MAX_PREFETCHES)
+        }
+        magnet = 'magnet:?xt=urn:btih:deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+        with pytest.raises(AddTorrentError, match='already active'):
+            await self.tm.prefetch_metadata(magnet, 30)
+
+    def test_sanitize_magnet_network_resources(self):
+        magnet = (
+            'magnet:?xt=urn:btih:deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+            '&tr=http%3A%2F%2F127.0.0.1%2Fannounce'
+            '&tr=https%3A%2F%2F8.8.8.8%2Fannounce'
+            '&ws=http%3A%2F%2F10.0.0.1%2Ffile'
+            '&ws=https%3A%2F%2F8.8.4.4%2Ffile'
+        )
+        __, params = self.tm._parse_magnet(magnet)
+        assert params.trackers == ['https://8.8.8.8/announce']
+        assert params.url_seeds == ['https://8.8.4.4/file']
+
+    def test_sanitize_torrent_filedump_and_private_escape_hatch(self):
+        from deluge._libtorrent import lt
+
+        with open(common.get_test_data_file('test.torrent'), 'rb') as torrent_file:
+            metainfo = lt.bdecode(torrent_file.read())
+        metainfo[b'announce'] = b'http://127.0.0.1/announce'
+        metainfo[b'announce-list'] = [
+            [b'http://127.0.0.1/announce'],
+            [b'https://8.8.8.8/announce'],
+        ]
+        metainfo[b'url-list'] = b'http://10.0.0.1/file'
+
+        sanitized = lt.bdecode(self.tm._sanitize_torrent_filedump(lt.bencode(metainfo)))
+        assert sanitized[b'announce'] == b'https://8.8.8.8/announce'
+        assert b'url-list' not in sanitized
+
+        self.tm.config['allow_private_trackers'] = True
+        sanitized = lt.bdecode(self.tm._sanitize_torrent_filedump(lt.bencode(metainfo)))
+        assert sanitized[b'announce'] == b'http://127.0.0.1/announce'
+        assert sanitized[b'url-list'] == b'http://10.0.0.1/file'
+
+    def test_add_filedump_only_exposes_sanitized_resources_to_libtorrent(self):
+        from deluge._libtorrent import lt
+
+        with open(common.get_test_data_file('test.torrent'), 'rb') as torrent_file:
+            metainfo = lt.bdecode(torrent_file.read())
+        metainfo[b'announce'] = b'http://127.0.0.1/announce'
+        metainfo[b'announce-list'] = [
+            [b'http://127.0.0.1/announce'],
+            [b'https://8.8.8.8/announce'],
+        ]
+        metainfo[b'url-list'] = [
+            b'http://10.0.0.1/file',
+            b'https://8.8.4.4/file',
+        ]
+
+        torrent_id = self.tm.add(filedump=lt.bencode(metainfo), save_state=False)
+        handle = self.tm[torrent_id].handle
+        assert [tracker['url'] for tracker in handle.trackers()] == [
+            'https://8.8.8.8/announce'
+        ]
+        assert list(handle.url_seeds()) == ['https://8.8.4.4/file']
+
+    def test_private_tracker_escape_hatch_defaults_off(self):
+        assert DEFAULT_PREFS['allow_private_trackers'] is False
 
     @pytest.mark.todo
     def test_remove_torrent_false(self):

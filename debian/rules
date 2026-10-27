@@ -3,6 +3,8 @@
 SHELL := sh -e
 
 VERSION := $(shell dpkg-parsechangelog | awk '/^Version: / { print $$2 }' | rev | cut -d- -f2- | rev)
+PYTHON_TAG := $(shell python3 -c 'import sys; print(f"py{sys.version_info.major}{sys.version_info.minor}")')
+RUNTIME_LOCK := requirements-lock/runtime-$(PYTHON_TAG)-linux-x86_64.txt
 
 %:
 	dh $@ --with python-virtualenv
@@ -20,7 +22,11 @@ override_dh_virtualenv:
 	dh_virtualenv \
 		--install-suffix deluge \
 		--use-system-packages \
-		--upgrade-pip \
+		--requirements $(RUNTIME_LOCK) \
+		--extra-pip-arg=--require-hashes \
+		--extra-pip-arg=--ignore-installed \
+		--extra-pip-arg=--find-links=https://github.com/arvidn/libtorrent/releases/expanded_assets/v2.1.2 \
+		--skip-install \
 		--package squall-common
 
 # User units are opt-in per user (systemctl --user enable), never global.
@@ -42,12 +48,20 @@ execute_before_dh_virtualenv:
 	echo "$(VERSION)" | sed 's/~/./' > RELEASE-VERSION
 
 execute_after_dh_virtualenv:
+	# Debian's virtualenv seeds pip as a module without a bin/pip script. Upgrade
+	# it from the separately hash-locked wheel before building Squall.
+	debian/squall-common/opt/venvs/deluge/bin/python -m pip install \
+		--require-hashes --upgrade --force-reinstall --no-deps \
+		-r requirements-lock/pip-bootstrap.txt
+	# Install Squall from this source tree without re-resolving locked dependencies.
+	debian/squall-common/opt/venvs/deluge/bin/python -m pip install \
+		--no-build-isolation --no-deps .
 	# Unpack plugin eggs
 	cd debian/squall-common/opt/venvs/deluge/lib/python*/site-packages/deluge/plugins/; \
 	for EGG in *.egg; \
 	do \
 		mkdir -p $${EGG%-py?.*}.egg; \
-		unzip $${EGG} -d $${EGG%-py?.*}.egg; \
+		unzip -oq $${EGG} -d $${EGG%-py?.*}.egg; \
 		rm -f $${EGG}; \
 	done
 	# Remove bytecode cache directories
@@ -55,6 +69,9 @@ execute_after_dh_virtualenv:
 
 override_dh_strip:
 	dh_strip --exclude=site-packages
+
+override_dh_dwz:
+	dh_dwz --exclude=site-packages
 
 override_dh_shlibdeps:
 	dh_shlibdeps --exclude=site-packages

@@ -4,6 +4,7 @@ import deluge.component as component
 from deluge.decorators import maybe_coroutine
 from deluge.ui.client import client
 from deluge.ui.console.utils import colors
+from deluge.ui.console.utils.security import sanitize_console_text
 
 
 class EventLog(component.Component):
@@ -43,7 +44,10 @@ class EventLog(component.Component):
         status = await client.core.get_torrent_status(torrent_id, ['name', 'state'])
         self.write(
             '{!green!}Torrent Added: {!info!}%s ({!cyan!}%s{!info!})'
-            % (status['name'], torrent_id)
+            % (
+                sanitize_console_text(status['name']),
+                sanitize_console_text(torrent_id),
+            )
         )
         # Write out what state the added torrent took
         self.on_torrent_state_changed(torrent_id, status['state'])
@@ -51,7 +55,10 @@ class EventLog(component.Component):
     def on_torrent_removed(self, torrent_id):
         self.write(
             '{!red!}Torrent Removed: {!info!}%s ({!cyan!}%s{!info!})'
-            % (self.console.get_torrent_name(torrent_id), torrent_id)
+            % (
+                sanitize_console_text(self.console.get_torrent_name(torrent_id)),
+                sanitize_console_text(torrent_id),
+            )
         )
 
     def on_torrent_state_changed(self, torrent_id, state):
@@ -59,8 +66,9 @@ class EventLog(component.Component):
         if not state:
             return
         # Modify the state string color
+        safe_state = sanitize_console_text(state)
         if state in colors.state_color:
-            state = colors.state_color[state] + state
+            safe_state = colors.state_color[state] + safe_state
 
         t_name = self.console.get_torrent_name(torrent_id)
 
@@ -68,7 +76,10 @@ class EventLog(component.Component):
         if not t_name:
             return
 
-        self.write(f'{state}: {{!info!}}{t_name} ({{!cyan!}}{torrent_id}{{!info!}})')
+        self.write(
+            f'{safe_state}: {{!info!}}{sanitize_console_text(t_name)} '
+            f'({{!cyan!}}{sanitize_console_text(torrent_id)}{{!info!}})'
+        )
 
     def on_torrent_finished(self, torrent_id):
         if component.get('TorrentList').config['ring_bell']:
@@ -77,11 +88,17 @@ class EventLog(component.Component):
             curses.beep()
         self.write(
             '{!info!}Torrent Finished: %s ({!cyan!}%s{!info!})'
-            % (self.console.get_torrent_name(torrent_id), torrent_id)
+            % (
+                sanitize_console_text(self.console.get_torrent_name(torrent_id)),
+                sanitize_console_text(torrent_id),
+            )
         )
 
     def on_new_version_available(self, version):
-        self.write('{!input!}New Squall version available: {!info!}%s' % (version))
+        self.write(
+            '{!input!}New Squall version available: {!info!}%s'
+            % sanitize_console_text(version)
+        )
 
     def on_session_paused(self):
         self.write('{!input!}Session Paused')
@@ -96,7 +113,10 @@ class EventLog(component.Component):
         except KeyError:
             pass
 
-        self.write(f'ConfigValueChanged: {{!input!}}{key}: {color}{value}')
+        self.write(
+            f'ConfigValueChanged: {{!input!}}{sanitize_console_text(key)}: '
+            f'{color}{sanitize_console_text(value)}'
+        )
 
     def write(self, s):
         current_time = time.localtime()
@@ -119,7 +139,7 @@ class EventLog(component.Component):
         self.previous_time = current_time
 
     def on_plugin_enabled(self, name):
-        self.write('PluginEnabled: {!info!}%s' % name)
+        self.write('PluginEnabled: {!info!}%s' % sanitize_console_text(name))
 
     def on_plugin_disabled(self, name):
-        self.write('PluginDisabled: {!info!}%s' % name)
+        self.write('PluginDisabled: {!info!}%s' % sanitize_console_text(name))

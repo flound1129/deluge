@@ -66,6 +66,9 @@ DEFAULT_PREFS = {
     'natpmp': True,
     'utpex': True,
     'lsd': True,
+    # Private tracker and web-seed destinations are an SSRF boundary. Operators
+    # who intentionally run LAN trackers can opt back in explicitly.
+    'allow_private_trackers': False,
     'enc_in_policy': 1,
     'enc_out_policy': 1,
     'enc_level': 2,
@@ -315,6 +318,17 @@ class PreferencesManager(component.Component):
 
     def _on_set_lsd(self, key, value):
         self.core.apply_session_setting('enable_lsd', value)
+
+    def _on_set_allow_private_trackers(self, key, value):
+        # This config is admin-only at the RPC boundary. Disabling libtorrent's
+        # SSRF mitigation is necessary for intentionally configured LAN tracker
+        # and web-seed endpoints to remain usable.
+        self.core.apply_session_setting('ssrf_mitigation', value is not True)
+        if value is not True:
+            torrentmanager = component.get('TorrentManager')
+            for torrent in torrentmanager.torrents.values():
+                torrent.set_trackers()
+                torrent.sanitize_web_seeds()
 
     def _on_set_utpex(self, key, value):
         if value:

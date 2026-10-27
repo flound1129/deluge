@@ -17,14 +17,14 @@ All modules will require the [common](#common) section dependencies.
 
 ## Common
 
-- [Twisted] _>= 18.7_ - Use `TLS` extras for `service_identity` and `idna`.
+- [Twisted] _>= 26.4, < 27_ - Use `TLS` extras for `service_identity` and `idna`. Squall carries the upstream bare-CR/LF header-value fix from Twisted 26.10 while 26.10 is only available as a release candidate.
 - [OpenSSL] _>= 1.0.1_
 - [pyOpenSSL]
 - [cryptography] - Generates the daemon TLS key and certificate.
 - [rencode] _>= 1.0.7_ - Encoding library.
 - [PyXDG] - Access freedesktop.org standards for \*nix.
 - [xdg-utils] - Provides xdg-open for \*nix.
-- [zope.interface]
+- [zope.interface] _>= 7.2, < 8_
 - [chardet] - Optional: Encoding detection.
 - [setproctitle] - Optional: Renaming processes.
 - [Pillow] _>= 13.0.0_ - Optional: Support for resizing tracker icons. Pillow 13 needs Python >= 3.11; Python 3.10 gets an older Pillow without the 13.0.0 security fixes.
@@ -42,7 +42,7 @@ All modules will require the [common](#common) section dependencies.
 
 ## Core (deluged daemon)
 
-- [libtorrent] _>= 1.2.0_ - Use _>= 2.0.15_ for fixes to bugs that remote peers can trigger. The 2.1 series is not tested with Squall, and 2.1.1 was released before the 2.0.15 merkle tree fixes.
+- [libtorrent] _2.1.2_ - Includes the peer endpoint-validation and Merkle-tree fixes needed by Squall.
 - [GeoIP] or [pygeoip] - Optional: IP address country lookup. (_Debian: `python-geoip`_)
 
 ## GTK UI

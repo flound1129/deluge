@@ -7,21 +7,100 @@
 #
 
 import email.message
+import ipaddress
 import logging
 import os.path
 import zlib
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred
+from twisted.internet.defer import Deferred, maybeDeferred
+from twisted.internet.endpoints import (
+    TCP4ClientEndpoint,
+    TCP6ClientEndpoint,
+    wrapClientTLS,
+)
 from twisted.python.failure import Failure
 from twisted.web import client, http
 from twisted.web._newclient import HTTPClientParser
 from twisted.web.error import Error, PageRedirect
 from twisted.web.http_headers import Headers
-from twisted.web.iweb import IAgent
+from twisted.web.iweb import IAgent, IAgentEndpointFactory
 from zope.interface import implementer
 
+from deluge.core.network_policy import network_url_log_label, sanitize_log_value
+
 log = logging.getLogger(__name__)
+
+
+class ValidatingRedirectAgent(client.RedirectAgent):
+    """Redirect agent that applies the caller's URL policy to every hop."""
+
+    def __init__(self, agent, url_validator, *args, **kwargs):
+        super().__init__(agent, *args, **kwargs)
+        self._url_validator = url_validator
+
+    def _handleRedirect(  # NOQA: N802, N803
+        self,
+        response,
+        method,
+        uri,
+        headers,
+        redirectCount,  # NOQA: N803
+    ):
+        if redirectCount >= self._redirectLimit:
+            return super()._handleRedirect(
+                response, method, uri, headers, redirectCount
+            )
+        locations = response.headers.getRawHeaders(b'location', [])
+        if not locations:
+            return super()._handleRedirect(
+                response, method, uri, headers, redirectCount
+            )
+        resolved = self._resolveLocation(uri, locations[0])
+        validation = maybeDeferred(self._url_validator, resolved.decode('utf8'))
+        validation.addCallback(
+            lambda _ignored: super(ValidatingRedirectAgent, self)._handleRedirect(
+                response, method, uri, headers, redirectCount
+            )
+        )
+        return validation
+
+
+@implementer(IAgentEndpointFactory)
+class PinnedAddressEndpointFactory:
+    """Create HTTP endpoints only for addresses approved by URL validation."""
+
+    def __init__(self, reactor):
+        self._reactor = reactor
+        self._addresses = {}
+        self._https_policy = client.BrowserLikePolicyForHTTPS()
+
+    def register(self, hostname, addresses):
+        self._addresses[hostname] = tuple(addresses)
+
+    def endpointForURI(self, uri):  # NOQA: N802
+        hostname = uri.host.decode('ascii').rstrip('.').lower()
+        addresses = self._addresses.get(hostname)
+        if not addresses:
+            raise ValueError('URL host was not resolved and approved')
+
+        # Prefer IPv4 for compatibility on systems without an IPv6 route. The
+        # selected numeric endpoint prevents a second, attacker-controlled DNS
+        # answer between validation and connection.
+        address = min(addresses, key=lambda value: ipaddress.ip_address(value).version)
+        parsed_address = ipaddress.ip_address(address)
+        if parsed_address.version == 4:
+            endpoint = TCP4ClientEndpoint(self._reactor, address, uri.port)
+        else:
+            endpoint = TCP6ClientEndpoint(self._reactor, address, uri.port)
+
+        if uri.scheme == b'http':
+            return endpoint
+        if uri.scheme == b'https':
+            tls_options = self._https_policy.creatorForNetloc(uri.host, uri.port)
+            return wrapClientTLS(tls_options, endpoint)
+        raise ValueError(f'Unsupported URL scheme: {uri.scheme!r}')
+
 
 # Torrent files, tracker pages, icons and blocklists are far smaller. The cap stops
 # a hostile server from filling memory with an endless or highly compressed body.
@@ -297,7 +376,8 @@ def sanitise_filename(filename):
     if os.path.basename(filename) != filename:
         # Dodgy server, log it
         log.warning(
-            'Potentially malicious server: trying to write to file: %s', filename
+            'Potentially malicious server: trying to write to file: %s',
+            sanitize_log_value(filename),
         )
         # Only use the basename
         filename = os.path.basename(filename)
@@ -306,7 +386,8 @@ def sanitise_filename(filename):
     if filename.startswith('.') or ';' in filename or '|' in filename:
         # Dodgy server, log it
         log.warning(
-            'Potentially malicious server: trying to write to file: %s', filename
+            'Potentially malicious server: trying to write to file: %s',
+            sanitize_log_value(filename),
         )
 
     return filename
@@ -321,6 +402,8 @@ def _download_file(
     allow_compression=True,
     handle_redirects=True,
     max_size=None,
+    url_validator=None,
+    endpoint_factory=None,
 ):
     """Downloads a file from a specific URL and returns a Deferred.
 
@@ -346,32 +429,45 @@ def _download_file(
         t.w.e.Error: for all other HTTP response errors
     """
 
-    agent = client.Agent(reactor)
+    def start_request(_ignored=None):
+        agent = (
+            client.Agent.usingEndpointFactory(reactor, endpoint_factory)
+            if endpoint_factory is not None
+            else client.Agent(reactor)
+        )
 
-    if allow_compression:
-        enc_accepted = ['gzip', 'x-gzip', 'deflate']
-        decoders = [(enc.encode(), CompressionDecoder) for enc in enc_accepted]
-        agent = client.ContentDecoderAgent(agent, decoders)
-    if handle_redirects:
-        agent = client.RedirectAgent(agent)
+        if allow_compression:
+            enc_accepted = ['gzip', 'x-gzip', 'deflate']
+            decoders = [(enc.encode(), CompressionDecoder) for enc in enc_accepted]
+            agent = client.ContentDecoderAgent(agent, decoders)
+        if handle_redirects:
+            agent = (
+                ValidatingRedirectAgent(agent, url_validator)
+                if url_validator is not None
+                else client.RedirectAgent(agent)
+            )
 
-    agent = HTTPDownloaderAgent(
-        agent,
-        filename,
-        callback,
-        force_filename,
-        allow_compression,
-        handle_redirects,
-        max_size,
-    )
+        agent = HTTPDownloaderAgent(
+            agent,
+            filename,
+            callback,
+            force_filename,
+            allow_compression,
+            handle_redirects,
+            max_size,
+        )
 
-    # The Headers init expects dict values to be a list.
-    if headers:
-        for name, value in list(headers.items()):
-            if not isinstance(value, list):
-                headers[name] = [value]
+        # The Headers init expects dict values to be a list.
+        if headers:
+            for name, value in list(headers.items()):
+                if not isinstance(value, list):
+                    headers[name] = [value]
 
-    return agent.request(b'GET', url.encode(), Headers(headers))
+        return agent.request(b'GET', url.encode(), Headers(headers))
+
+    if url_validator is None:
+        return start_request()
+    return maybeDeferred(url_validator, url).addCallback(start_request)
 
 
 def download_file(
@@ -383,6 +479,8 @@ def download_file(
     allow_compression=True,
     handle_redirects=True,
     max_size=None,
+    url_validator=None,
+    endpoint_factory=None,
 ):
     """Downloads a file from a specific URL and returns a Deferred.
 
@@ -400,6 +498,10 @@ def download_file(
         handle_redirects (bool): HTTP redirects handled automatically or not.
         max_size (int): Maximum decoded response size in bytes. Defaults to
             ``MAX_DOWNLOAD_SIZE``.
+        url_validator (callable): Optional policy applied to the initial URL
+            and every redirect target before a connection is attempted.
+        endpoint_factory: Optional Twisted endpoint factory for connecting to
+            addresses pinned by ``url_validator``.
 
     Returns:
         Deferred: The filename of the downloaded file.
@@ -416,8 +518,8 @@ def download_file(
     def on_download_fail(failure):
         log.warning(
             'Error occurred downloading file from "%s": %s',
-            url,
-            failure.getErrorMessage(),
+            network_url_log_label(url),
+            sanitize_log_value(failure.getErrorMessage()),
         )
         result = failure
         return result
@@ -431,6 +533,8 @@ def download_file(
         allow_compression=allow_compression,
         handle_redirects=handle_redirects,
         max_size=max_size,
+        url_validator=url_validator,
+        endpoint_factory=endpoint_factory,
     )
     d.addCallbacks(on_download_success, on_download_fail)
     return d

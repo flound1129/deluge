@@ -26,7 +26,11 @@ jobs:
     timeout-minutes: 30
     strategy:
       matrix:
-        python-version: ["3.10", "3.13"]
+        include:
+          - python-version: "3.10"
+            lock-file: requirements-lock/ci-py310-linux-x86_64.txt
+          - python-version: "3.13"
+            lock-file: requirements-lock/ci-py313-linux-x86_64.txt
 
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
@@ -52,8 +56,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv pip install -r requirements-ci.txt
-          uv pip install -e .
+          uv pip install --require-hashes \
+            --find-links https://github.com/arvidn/libtorrent/releases/expanded_assets/v2.1.2 \
+            -r "${{ matrix.lock-file }}"
+          uv pip install --no-deps -e .
 
       - name: Install security dependencies
         if: contains(env.SECURITY_TESTS, 'True')

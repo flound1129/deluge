@@ -11,7 +11,7 @@ from unittest import mock
 
 import pytest
 import pytest_twisted
-from twisted.internet import reactor
+from twisted.internet import defer, reactor
 from twisted.internet.error import CannotListenError
 from twisted.web.error import Error, PageRedirect
 from twisted.web.http import NOT_MODIFIED
@@ -23,6 +23,7 @@ from deluge import httpdownloader
 from deluge.httpdownloader import (
     DownloadTimeoutError,
     DownloadTooLargeError,
+    ValidatingRedirectAgent,
     download_file,
 )
 from deluge.log import setup_logger
@@ -198,6 +199,20 @@ class TestDownloadFile:
             except Exception as ex:
                 pytest.fail(ex)
         return filename
+
+    async def test_redirect_agent_validates_resolved_target(self):
+        validator = mock.Mock()
+        agent = ValidatingRedirectAgent(mock.Mock(), validator)
+        response = mock.Mock()
+        response.headers.getRawHeaders.return_value = [b'http://127.0.0.1/private']
+        validator.return_value = defer.fail(ValueError('private target'))
+
+        with pytest.raises(ValueError, match='private target'):
+            await agent._handleRedirect(
+                response, b'GET', b'https://8.8.8.8/start', None, 0
+            )
+
+        validator.assert_called_once_with('http://127.0.0.1/private')
 
     async def test_download(self):
         filename = await download_file(self.get_url(), fname('index.html'))

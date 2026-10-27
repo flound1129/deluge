@@ -1,6 +1,10 @@
+--find-links https://github.com/arvidn/libtorrent/releases/expanded_assets/v2.1.2
+
+pip==26.2.2
 setuptools
-libtorrent>=2.0.15,<2.1
-twisted[tls]>=18.7
+wheel
+libtorrent==2.1.2
+twisted[tls]==26.4.0
 rencode>=1.0.7
 pyopenssl
 cryptography
@@ -13,7 +17,7 @@ setproctitle
 pywin32; sys_platform == 'win32'
 certifi; sys_platform == 'win32'
 windows-curses; sys_platform == 'win32'
-zope.interface>=4.4.2,<8.0
+zope.interface==7.2
 distro; 'linux' in sys_platform or 'bsd' in sys_platform
 pygeoip
 ifaddr>=0.2.0

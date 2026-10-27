@@ -17,6 +17,7 @@ import logging
 import os
 import socket
 import time
+from collections import Counter
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -27,6 +28,15 @@ from deluge._libtorrent import lt
 from deluge.common import decode_bytes
 from deluge.configmanager import ConfigManager, get_config_dir
 from deluge.core.authmanager import AUTH_LEVEL_ADMIN
+from deluge.core.network_policy import (
+    MAX_TRACKERS_PER_TORRENT,
+    MAX_WEB_SEEDS_PER_TORRENT,
+    filter_network_urls,
+    filter_tracker_tiers,
+    network_url_log_label,
+    sanitize_log_value,
+    validate_peer_endpoint,
+)
 from deluge.event import (
     TorrentFolderRenamedEvent,
     TorrentStateChangedEvent,
@@ -270,6 +280,7 @@ class Torrent:
             self.set_trackers()
             self.is_finished = False
             self.filename = filename
+        self.sanitize_web_seeds()
 
         if not self.filename:
             self.filename = ''
@@ -570,12 +581,17 @@ class Torrent:
                 if file_progress[index] < ti.files().file_size(index):
                     file_path = os.path.join(save_path, ti.file_at(index).path)
                     if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-                        log.debug('Removing partial skipped file: %s', file_path)
+                        log.debug(
+                            'Removing partial skipped file: %s',
+                            sanitize_log_value(file_path),
+                        )
                         try:
                             os.remove(file_path)
                         except OSError as ex:
                             log.warning(
-                                'Unable to remove skipped file %s: %s', file_path, ex
+                                'Unable to remove skipped file %s: %s',
+                                sanitize_log_value(file_path),
+                                sanitize_log_value(ex),
                             )
 
         # Store the priorities.
@@ -612,18 +628,46 @@ class Torrent:
             trackers (list of dicts): A list of trackers.
         """
         if trackers is None:
-            self.trackers = list(self.handle.trackers())
-            self.tracker_host = None
-            return
+            trackers = list(self.handle.trackers())
 
         if log.isEnabledFor(logging.DEBUG):
-            log.debug('Setting trackers for %s: %s', self.torrent_id, trackers)
+            log.debug(
+                'Setting %s tracker candidates for %s',
+                min(len(trackers), MAX_TRACKERS_PER_TORRENT * 4),
+                self.torrent_id,
+            )
+
+        urls = []
+        tiers = []
+        for index, tracker in enumerate(trackers):
+            if index >= MAX_TRACKERS_PER_TORRENT * 4:
+                break
+            try:
+                urls.append(str(tracker['url']))
+                tiers.append(int(tracker['tier']))
+            except (KeyError, TypeError, ValueError):
+                continue
+
+        filtered_urls, filtered_tiers = filter_tracker_tiers(
+            urls,
+            tiers,
+            allow_private=self.config.get('allow_private_trackers', False) is True,
+        )
+        if (
+            len(filtered_urls) != len(urls)
+            or len(filtered_urls) >= MAX_TRACKERS_PER_TORRENT
+        ):
+            log.warning(
+                'Filtered or capped trackers for %s: accepted %s of %s',
+                self.torrent_id,
+                len(filtered_urls),
+                len(urls),
+            )
 
         tracker_list = []
-
-        for tracker in trackers:
-            new_entry = lt.announce_entry(str(tracker['url']))
-            new_entry.tier = tracker['tier']
+        for url, tier in zip(filtered_urls, filtered_tiers):
+            new_entry = lt.announce_entry(url)
+            new_entry.tier = tier
             tracker_list.append(new_entry)
         self.handle.replace_trackers(tracker_list)
 
@@ -631,10 +675,17 @@ class Torrent:
         if log.isEnabledFor(logging.DEBUG):
             log.debug('Trackers set for %s:', self.torrent_id)
             for tracker in self.handle.trackers():
-                log.debug(' [tier %s]: %s', tracker['tier'], tracker['url'])
+                log.debug(
+                    ' [tier %s]: %s',
+                    tracker['tier'],
+                    network_url_log_label(tracker['url']),
+                )
         # Set the tracker list in the torrent object
-        self.trackers = trackers
-        if len(trackers) > 0:
+        self.trackers = [
+            {'url': url, 'tier': tier}
+            for url, tier in zip(filtered_urls, filtered_tiers)
+        ]
+        if self.trackers:
             # Force a re-announce if there is at least 1 tracker
             self.force_reannounce()
         self.tracker_host = None
@@ -658,6 +709,31 @@ class Torrent:
                 TorrentTrackerStatusEvent(self.torrent_id, self.tracker_status)
             )
 
+    def sanitize_web_seeds(self):
+        """Remove disallowed or excess web seeds from the native handle."""
+
+        allow_private = self.config.get('allow_private_trackers', False) is True
+        for get_seeds, remove_seed in (
+            (self.handle.url_seeds, self.handle.remove_url_seed),
+            (self.handle.http_seeds, self.handle.remove_http_seed),
+        ):
+            try:
+                seeds = list(get_seeds())
+                accepted = filter_network_urls(
+                    seeds,
+                    kind='web_seed',
+                    allow_private=allow_private,
+                    limit=MAX_WEB_SEEDS_PER_TORRENT,
+                )
+                accepted_counts = Counter(accepted)
+                for seed in seeds:
+                    if accepted_counts[seed]:
+                        accepted_counts[seed] -= 1
+                    else:
+                        remove_seed(seed)
+            except RuntimeError as ex:
+                log.debug('Unable to sanitize web seeds: %s', sanitize_log_value(ex))
+
     def merge_trackers(self, torrent_info):
         """Merges new trackers in torrent_info into torrent"""
         log.info(
@@ -670,10 +746,12 @@ class Torrent:
         if torrent_info.priv() or self.get_status(['private'])['private']:
             log.info('Adding trackers aborted: Torrent has private flag set.')
         else:
-            for tracker in torrent_info.trackers():
-                self.handle.add_tracker({'url': tracker.url, 'tier': tracker.tier})
-            # Update torrent.trackers from libtorrent handle.
-            self.set_trackers()
+            trackers = list(self.handle.trackers())
+            trackers.extend(
+                {'url': tracker.url, 'tier': tracker.tier}
+                for tracker in torrent_info.trackers()
+            )
+            self.set_trackers(trackers)
 
     def update_state(self):
         """Updates the state, based on libtorrent's torrent state"""
@@ -723,7 +801,8 @@ class Torrent:
             )
             if self.forced_error:
                 log.debug(
-                    'Torrent Error state message: %s', self.forced_error.error_message
+                    'Torrent Error state message: %s',
+                    sanitize_log_value(self.forced_error.error_message),
                 )
 
     def set_status_message(self, message=None):
@@ -1275,7 +1354,7 @@ class Torrent:
             try:
                 self.handle.pause()
             except RuntimeError as ex:
-                log.debug('Unable to pause torrent: %s', ex)
+                log.debug('Unable to pause torrent: %s', sanitize_log_value(ex))
 
     def resume(self):
         """Resumes this torrent."""
@@ -1301,7 +1380,7 @@ class Torrent:
             try:
                 self.handle.resume()
             except RuntimeError as ex:
-                log.debug('Unable to resume torrent: %s', ex)
+                log.debug('Unable to resume torrent: %s', sanitize_log_value(ex))
 
         # Clear torrent error state.
         if self.forced_error and not self.forced_error.restart_to_resume:
@@ -1309,7 +1388,7 @@ class Torrent:
         elif self.state == 'Error' and not self.forced_error:
             self.handle.clear_error()
 
-    def connect_peer(self, peer_ip, peer_port):
+    def connect_peer(self, peer_ip, peer_port, allow_private=False):
         """Manually add a peer to the torrent
 
         Args:
@@ -1319,10 +1398,20 @@ class Torrent:
         Returns:
             bool: True is successful, otherwise False
         """
+        endpoint = validate_peer_endpoint(
+            peer_ip, peer_port, allow_private=allow_private
+        )
+        if endpoint is None:
+            log.warning(
+                'Refusing disallowed peer endpoint %s:%s',
+                sanitize_log_value(peer_ip),
+                sanitize_log_value(peer_port),
+            )
+            return False
         try:
-            self.handle.connect_peer((peer_ip, int(peer_port)), 0)
-        except (RuntimeError, ValueError) as ex:
-            log.debug('Unable to connect to peer: %s', ex)
+            self.handle.connect_peer(endpoint, 0)
+        except RuntimeError as ex:
+            log.debug('Unable to connect to peer: %s', sanitize_log_value(ex))
             return False
         return True
 
@@ -1349,7 +1438,9 @@ class Torrent:
                 certificate_path, private_key_path, dh_params_path, password
             )
         except RuntimeError as ex:
-            log.error('Unable to set ssl certificate from file: %s', ex)
+            log.error(
+                'Unable to set ssl certificate from file: %s', sanitize_log_value(ex)
+            )
             return False
         return True
 
@@ -1372,7 +1463,9 @@ class Torrent:
         try:
             self.handle.set_ssl_certificate_buffer(certificate, private_key, dh_params)
         except RuntimeError as ex:
-            log.error('Unable to set ssl certificate from buffer: %s', ex)
+            log.error(
+                'Unable to set ssl certificate from buffer: %s', sanitize_log_value(ex)
+            )
             return False
         return True
 
@@ -1396,8 +1489,8 @@ class Torrent:
                     'Could not move storage for torrent %s since %s does '
                     'not exist and could not create the directory: %s',
                     self.torrent_id,
-                    dest,
-                    ex,
+                    sanitize_log_value(dest),
+                    sanitize_log_value(ex),
                 )
                 return False
 
@@ -1409,7 +1502,9 @@ class Torrent:
             except TypeError:
                 self.handle.move_storage(dest, flags=2)
         except RuntimeError as ex:
-            log.error('Error calling libtorrent move_storage: %s', ex)
+            log.error(
+                'Error calling libtorrent move_storage: %s', sanitize_log_value(ex)
+            )
             return False
         self.moving_storage_dest_path = dest
         self.update_state()
@@ -1453,12 +1548,12 @@ class Torrent:
 
         def write_file(filepath, filedump):
             """Write out the torrent file"""
-            log.debug('Writing torrent file to: %s', filepath)
+            log.debug('Writing torrent file to: %s', sanitize_log_value(filepath))
             try:
                 with open(filepath, 'wb') as save_file:
                     save_file.write(filedump)
             except OSError as ex:
-                log.error('Unable to save torrent file to: %s', ex)
+                log.error('Unable to save torrent file to: %s', sanitize_log_value(ex))
 
         filepath = os.path.join(get_config_dir(), 'state', self.torrent_id + '.torrent')
 
@@ -1492,18 +1587,20 @@ class Torrent:
             )
 
         for torrent_file in torrent_files:
-            log.debug('Deleting torrent file: %s', torrent_file)
+            log.debug('Deleting torrent file: %s', sanitize_log_value(torrent_file))
             try:
                 os.remove(torrent_file)
             except OSError as ex:
-                log.warning('Unable to delete the torrent file: %s', ex)
+                log.warning(
+                    'Unable to delete the torrent file: %s', sanitize_log_value(ex)
+                )
 
     def force_reannounce(self):
         """Force a tracker reannounce"""
         try:
             self.handle.force_reannounce()
         except RuntimeError as ex:
-            log.debug('Unable to force reannounce: %s', ex)
+            log.debug('Unable to force reannounce: %s', sanitize_log_value(ex))
             return False
         return True
 
@@ -1516,7 +1613,7 @@ class Torrent:
         try:
             self.handle.scrape_tracker()
         except RuntimeError as ex:
-            log.debug('Unable to scrape tracker: %s', ex)
+            log.debug('Unable to scrape tracker: %s', sanitize_log_value(ex))
             return False
         return True
 
@@ -1533,7 +1630,7 @@ class Torrent:
             self.handle.resume()
             self.forcing_recheck = True
         except RuntimeError as ex:
-            log.debug('Unable to force recheck: %s', ex)
+            log.debug('Unable to force recheck: %s', sanitize_log_value(ex))
             self.forcing_recheck = False
         return self.forcing_recheck
 
@@ -1564,7 +1661,11 @@ class Torrent:
         Returns:
             twisted.internet.defer.Deferred: A deferred which fires when the rename is complete
         """
-        log.debug('Attempting to rename folder: %s to %s', folder, new_folder)
+        log.debug(
+            'Attempting to rename folder: %s to %s',
+            sanitize_log_value(folder),
+            sanitize_log_value(new_folder),
+        )
 
         # Empty string means remove the dir and move its content to the parent
         if len(new_folder) > 0:
@@ -1621,20 +1722,23 @@ class Torrent:
         try:
             if not os.listdir(folder_full_path):
                 os.removedirs(folder_full_path)
-                log.debug('Removed Empty Folder %s', folder_full_path)
+                log.debug(
+                    'Removed Empty Folder %s', sanitize_log_value(folder_full_path)
+                )
             else:
                 for root, dirs, dummy_files in os.walk(folder_full_path, topdown=False):
                     for name in dirs:
                         try:
                             os.removedirs(os.path.join(root, name))
                             log.debug(
-                                'Removed Empty Folder %s', os.path.join(root, name)
+                                'Removed Empty Folder %s',
+                                sanitize_log_value(os.path.join(root, name)),
                             )
                         except OSError as ex:
-                            log.debug(ex)
+                            log.debug('%s', sanitize_log_value(ex))
 
         except OSError as ex:
-            log.debug('Cannot Remove Folder: %s', ex)
+            log.debug('Cannot Remove Folder: %s', sanitize_log_value(ex))
 
     def cleanup_prev_status(self):
         """Checks the validity of the keys in the prev_status dict.

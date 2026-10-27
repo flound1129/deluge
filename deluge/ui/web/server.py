@@ -84,6 +84,27 @@ MAX_STAGED_BYTES = 256 * 1024 * 1024
 STAGED_FILE_TIMEOUT = 60 * 60
 
 
+class HardenedHTTPChannel(http.HTTPChannel):
+    """Reject bare CR/LF bytes embedded in an HTTP header value.
+
+    Twisted 26.4.0 only rejects NUL here.  This carries the upstream fix for
+    CVE-2026-115877 until a stable Twisted release containing it is available.
+    """
+
+    def headerReceived(self, line):  # NOQA: N802
+        try:
+            _header, value = line.split(b':', 1)
+        except ValueError:
+            # Let Twisted produce its normal bad-request response.
+            return super().headerReceived(line)
+
+        if b'\r' in value or b'\n' in value:
+            self._respondToBadRequestAndDisconnect()
+            return False
+
+        return super().headerReceived(line)
+
+
 def rpath(*paths):
     """Convert a relative path into an absolute path relative to the location
     of this script.
@@ -910,6 +931,7 @@ class DelugeWeb(component.Component):
         # Remove twisted version number from 'server' http-header for security reasons
         server.version = 'TwistedWeb'
         self.site = server.Site(self.top_level, requestFactory=WebRequest)
+        self.site.protocol = HardenedHTTPChannel
         self.staged_files = StagedFiles()
         self.web_api = WebApi()
         self.web_utils = WebUtils()

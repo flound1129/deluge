@@ -391,7 +391,42 @@ class TestTorrent(BaseTestCase):
         handle = self.session.add_torrent(atp)
         self.torrent = Torrent(handle, {})
         assert not self.torrent.connect_peer('127.0.0.1', 'text')
-        assert self.torrent.connect_peer('127.0.0.1', '1234')
+        assert not self.torrent.connect_peer('127.0.0.1', '1234')
+        assert self.torrent.connect_peer('127.0.0.1', '1234', allow_private=True)
+
+    def test_set_trackers_filters_private_endpoint_with_escape_hatch(self):
+        atp = self.get_torrent_atp('test_torrent.file.torrent')
+        handle = self.session.add_torrent(atp)
+        self.torrent = Torrent(handle, {})
+        trackers = [
+            {'url': 'http://127.0.0.1/announce', 'tier': 0},
+            {'url': 'https://8.8.8.8/announce', 'tier': 1},
+        ]
+
+        self.torrent.set_trackers(trackers)
+        assert self.torrent.trackers == [{'url': 'https://8.8.8.8/announce', 'tier': 1}]
+
+        self.torrent.config['allow_private_trackers'] = True
+        try:
+            self.torrent.set_trackers(trackers)
+            assert self.torrent.trackers == trackers
+        finally:
+            self.torrent.config['allow_private_trackers'] = False
+
+    def test_torrent_filters_private_web_seeds_from_native_handle(self):
+        atp = self.get_torrent_atp('test_torrent.file.torrent')
+        handle = self.session.add_torrent(atp)
+        handle.add_url_seed('http://127.0.0.1/file')
+        handle.add_url_seed('https://8.8.8.8/file')
+        handle.add_http_seed('http://10.0.0.1/file')
+        handle.add_http_seed('https://8.8.4.4/file')
+
+        self.torrent = Torrent(handle, {})
+
+        assert list(handle.url_seeds()) == ['https://8.8.8.8/file']
+        # Libtorrent 2.1 removes deprecated HTTP seeds instead of retaining
+        # them; older supported bindings retain the accepted public seed.
+        assert set(handle.http_seeds()) <= {'https://8.8.4.4/file'}
 
     def test_status_cache(self):
         atp = self.get_torrent_atp('test_torrent.file.torrent')
