@@ -164,25 +164,27 @@ Both Python 3.10 and 3.13 CI locks resolve successfully with `--require-hashes`.
 
 ## Published Debian package status
 
-The newest published package set checked on 2026-10-26 is prerelease `squall-0.1.0.1793020828`, built from commit `0fde8ff3c6eeebd18c474f7973a0b4c841be4db7`. That is the source commit audited above, so the package does not contain fixes for TP1 through TP7 or D1.
+The newest published package set checked on 2026-10-27 is prerelease [`squall-0.1.0.1793100756`](https://github.com/flound1129/deluge/releases/tag/squall-0.1.0.1793100756), built from commit `30ae9141ca100b77685f6af49543a2f32b5bb19d`. Its Linux Python 3.10/3.13 tests, Noble/Trixie builds and packaged-runtime checks all passed before publication.
 
-I downloaded and unpacked the published `squall-common` artifacts for Noble and Trixie. Their SHA-256 digests matched the release metadata. Both bundle these relevant versions:
+I downloaded and unpacked all 12 published artifacts; every SHA-256 digest matched the GitHub release metadata. The `squall-common` packages have these exact digests:
 
-| Dependency     | Noble  | Trixie |
-| -------------- | ------ | ------ |
-| libtorrent     | 2.0.15 | 2.0.15 |
-| Twisted        | 26.4.0 | 26.4.0 |
-| zope.interface | 7.2    | 7.2    |
+| Distribution | `squall-common` SHA-256                                            |
+| ------------ | ------------------------------------------------------------------ |
+| Noble        | `7e846bf1bfd966eb98794b1d0c2d3312a7f5fedbad665bf0201c88cfc202139f` |
+| Trixie       | `9f70cd4834709d9285bd32f2dc92b18e7b950f88cf952f8065a10f7073256aa8` |
 
-That inspected package therefore remains exposed to TP1 and TP7 in libtorrent and to conditional D1 in Twisted. It also ships the original TP2 through TP6 behavior and does not use the new hash locks. Do not describe that already-published artifact as remediated merely because the branch source has changed.
+Both `squall-common` packages are `amd64`, depend only on `python3-gi` and `python3-gi-cairo`, and contain pip 26.2.2, libtorrent 2.1.2, Twisted 26.4.0 and zope.interface 7.2. Noble uses Python 3.12.3 and Trixie uses Python 3.13.5. Each contains exactly one pip distribution metadata directory, every virtualenv launcher targets `/opt/venvs/deluge/bin/python`, and the bundled libtorrent extension has no dependency or runtime path to a system libtorrent. The inspected network-policy, downloader, Web-header and console-sanitization sources are byte-identical to the audited branch.
 
-There are useful deployment safeguards, but they do not close these findings. Remote daemon RPC is disabled by default, and the Web system service is installed without being enabled automatically. Those defaults reduce TP3 through TP5 and D1 until an operator exposes the corresponding service. The P2P listener, tracker/web-seed behavior and UPnP remain active defaults when the daemon runs, so TP1, TP2 and TP7 still apply without enabling remote RPC or Web access.
+This published release therefore contains the TP1 and TP3 through TP7 fixes, the D1 compatibility patch, and the application-layer TP2 mitigations. TP2 is not fully closed: libtorrent still performs its own DNS lookup and redirect handling for tracker and web-seed transports, outside Squall's Python connection path. The native DNS-rebinding/private-redirect residual described above remains.
+
+Remote daemon RPC is disabled by default, and the Web system service is installed without being enabled automatically. Those defaults remain defense in depth. The P2P listener and libtorrent-managed tracker/web-seed transports are active when the daemon runs, so the remaining TP2 native-layer residual does not depend on enabling remote RPC or the Web UI.
+
+Use `squall-0.1.0.1793100756` or later. Earlier prereleases do not represent the final audited package; artifact inspection also caught and superseded intermediate builds with package-staging launcher paths or stale pip metadata.
 
 ## Remaining work
 
-1. Publish the locally verified Noble and Trixie package builds through the Linux Python 3.10/3.13 CI release gate, then inspect the published artifacts before calling the available package remediated.
-2. Move to the stable Twisted release containing CVE-2026-115877 when available and remove the local compatibility patch.
-3. Track a strict libtorrent tracker/web-seed egress mode that pins DNS answers and rejects every private redirect. Squall cannot enforce that final connection decision for libtorrent-managed transports from the Python layer; the current application checks and libtorrent mitigation reduce but do not eliminate TP2's DNS-rebinding residual.
+1. Move to the stable Twisted release containing CVE-2026-115877 when available and remove the local compatibility patch.
+2. Track a strict libtorrent tracker/web-seed egress mode that pins DNS answers and rejects every private redirect. Squall cannot enforce that final connection decision for libtorrent-managed transports from the Python layer; the current application checks and libtorrent mitigation reduce but do not eliminate TP2's DNS-rebinding residual.
 
 ## Limits
 
